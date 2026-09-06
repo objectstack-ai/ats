@@ -10,9 +10,9 @@ whose blockers are still open.
 | Card | Title | Milestone | Blocked by |
 |:--|:--|:--|:--|
 | ~~01–03~~ | Scaffold · dictionaries · employer domain | M1 | **landed in the initial commit** |
-| [04](./04-candidate-domain.md) | Candidate domain: `ats_candidate`, `ats_candidate_credential` | M1 | — |
-| [05](./05-transaction-domain.md) | Transaction domain: `ats_application`, `ats_interview`, `ats_offer`, `ats_report` | M1 | 04 |
-| [06](./06-security.md) | Positions, permission sets, RLS, FLS, bindings | M1 | 05 |
+| ~~04~~ | ~~Candidate domain: `ats_candidate`, `ats_candidate_credential`~~ | M1 | **landed** |
+| ~~05~~ | ~~Transaction domain: `ats_application`, `ats_interview`, `ats_offer`, `ats_report`~~ | M1 | **landed** |
+| ~~06~~ | ~~Positions, permission sets, RLS, FLS, bindings~~ | M1 | **landed** |
 | [07](./07-employer-views.md) | Employer views: pipeline kanban, inbox, interview calendar, talent pool | M2 | 06 |
 | [08](./08-platform-seeker-views.md) | Platform & seeker views + public application form | M2 | 06 |
 | [09](./09-apps.md) | Three apps with navigation and permission gating | M2 | 07, 08 |

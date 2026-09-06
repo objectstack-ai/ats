@@ -77,9 +77,23 @@ ats_job        [public_read] ats_offer      [private]    ats_skill              
 
 | 强度 | 对象 | 机制 |
 |---|---|---|
-| **硬隔离** | candidate · application · offer · employer · report | `private` + RLS。雇主侧归属统一经 `ats_employer_member`（user ∈ 该雇主的 active 成员）判定；求职者侧按 `user` 自持。越权可读即事故。 |
+| **硬隔离** | candidate · application · offer · employer · report | `private` + `readScope: 'org'` + RLS。雇主侧经 `employer_org IN (current_user.accessible_org_ids)` 判定；求职者侧按 `user` / `candidate_user` 自持。越权可读即事故。 |
 | **软过滤** | job | `public_read` + 视图过滤 + FLS。岗位终将公开；草稿/待审靠列表条件与 App 导航隐藏，`review_note` 靠 FLS。**刻意降级，非遗漏**（见 08 Q1）。 |
 | 公开字典 | skill · credential_type | `public_read`，写权限仅平台角色。 |
+
+### 雇主身份怎么传给 RLS —— 裁决记录（2026-09-06）
+
+**雇主 = 平台组织。** 每个雇主对应一个 organization，其员工是该组织成员；雇主侧对象上反范式一个 `employer_org` 标量，谓词写 `employer_org IN (current_user.accessible_org_ids)`。
+
+**为什么不能按原设计"经 `ats_employer_member` 判定"**：RLS 谓词是 canonical CEL，只能把**字段**与 `current_user.*` 占位符比较，**跨对象 traversal 是编译错误**（ADR-0055）。"当前用户是不是这行雇主的成员"表达不了。可用占位符仅 `id` / `email` / `organization_id` / `accessible_org_ids` / `org_user_ids` / `positions`。
+
+**为什么用 `accessible_org_ids` 而不是 `organization_id`**：前者是调用者的**全部**组织成员集（ADR-0105 D2），一个服务两家雇主的招聘顾问无需切换上下文即可同时看到两边；无有效成员资格解析为空集，谓词 fail-closed 到零行，绝不 fail-open。
+
+**为什么对象不开 `tenancy: { enabled: true }`**：那道 Layer 0 墙是绝对的、按组织相等判定的，会连带把求职者**自己的投递**也挡住 —— 求职者不是雇主组织的成员。业务 RLS 允许两类受众对同一批行各带各的策略，这才是 marketplace 的形状。
+
+**组合顺序（关键）**：OWD `private` 定基线 → `readScope: 'org'` 把 owner 匹配放宽到组织范围 → RLS 收窄到真正的雇主。只给 `allowRead` 不给 `readScope`，招聘专员将只能看到自己创建的记录 —— 那不是 marketplace，是一堆私人收件箱。
+
+**遗留的运维前提**：雇主入驻时需创建对应 organization 并把员工加为成员（`sys_organization` / `sys_member`）。M1 由种子数据承担，正式流程挂在 F1 机构资质审核通过之后 —— 已记入卡 11。
 
 ### 角色与权限矩阵
 

@@ -110,6 +110,11 @@ export const Employer = ObjectSchema.create({
       label: 'Service Expires',
     }),
 
+    organization: Field.text({
+      label: 'Organization',
+      maxLength: 64,
+      description: 'Platform organization backing this employer. Its staff are members of it; every employer-side row-level policy resolves through it.',
+    }),
     owner: Field.user({
       label: 'Primary Contact',
       defaultValue: 'current_user',

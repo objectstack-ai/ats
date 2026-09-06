@@ -33,6 +33,17 @@ export const Application = ObjectSchema.create({
       description: 'Copied from job.employer on insert; row-level rules key on it.',
     }),
 
+    employer_org: Field.text({
+      label: 'Employer Organization',
+      maxLength: 64,
+      description: 'Organization id of the employer, stamped on write. Row-level policies compare it to the caller\'s org memberships — a predicate cannot traverse the employer lookup (ADR-0055).',
+    }),
+    candidate_user: Field.text({
+      label: 'Candidate User',
+      maxLength: 64,
+      description: "User id of the candidate, stamped on write. Lets the seeker's own policy match without traversing the candidate lookup.",
+    }),
+
     stage: Field.select({
       label: 'Stage',
       required: true,

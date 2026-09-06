@@ -29,6 +29,16 @@ export const Offer = ObjectSchema.create({
       label: 'Employer',
       description: 'Copied from the application on insert; row-level rules key on it.',
     }),
+    employer_org: Field.text({
+      label: 'Employer Organization',
+      maxLength: 64,
+      description: 'Organization id of the employer, stamped on write. Row-level policies compare it to the caller\'s org memberships — a predicate cannot traverse the employer lookup (ADR-0055).',
+    }),
+    candidate_user: Field.text({
+      label: 'Candidate User',
+      maxLength: 64,
+      description: "User id of the candidate, stamped on write. Lets the seeker's own policy match without traversing the candidate lookup.",
+    }),
     salary: Field.currency({ label: 'Salary' }),
     salary_period: Field.select({
       label: 'Salary Period',
