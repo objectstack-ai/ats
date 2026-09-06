@@ -32,6 +32,11 @@ export const Job = ObjectSchema.create({
       label: 'Employer',
       required: true,
     }),
+    employer_org: Field.text({
+      label: 'Employer Organization',
+      maxLength: 64,
+      description: 'Organization id of the employer, stamped on write. Row-level policies compare it to the caller\'s org memberships — a predicate cannot traverse the employer lookup (ADR-0055).',
+    }),
     department: Field.text({
       label: 'Department',
       maxLength: 120,

@@ -3,24 +3,28 @@
 Each file below is a complete issue body: paste it verbatim into a GitHub issue, add the label
 `pm:queue`, and the PM dispatch loop (`AGENTS.md` → PM dispatch) can pick it up.
 
-**Post cards in file order**, then replace every `Blocked-by: card-NN` placeholder with the real
-`#<issue>` number — the loop honours `Blocked-by:` at selection time and never dispatches a card
-whose blockers are still open.
+Cards 01–06 landed directly (M1 was the serial bottleneck: every later card depends on the objects
+and permission sets it created). Cards 07–14 are now **live issues**, labelled `pm:queue` — the table
+below is the map. The dispatch loop honours `Blocked-by:` at selection time and never dispatches a
+card whose blockers are still open.
 
-| Card | Title | Milestone | Blocked by |
-|:--|:--|:--|:--|
-| ~~01–03~~ | Scaffold · dictionaries · employer domain | M1 | **landed in the initial commit** |
-| [04](./04-candidate-domain.md) | Candidate domain: `ats_candidate`, `ats_candidate_credential` | M1 | — |
-| [05](./05-transaction-domain.md) | Transaction domain: `ats_application`, `ats_interview`, `ats_offer`, `ats_report` | M1 | 04 |
-| [06](./06-security.md) | Positions, permission sets, RLS, FLS, bindings | M1 | 05 |
-| [07](./07-employer-views.md) | Employer views: pipeline kanban, inbox, interview calendar, talent pool | M2 | 06 |
-| [08](./08-platform-seeker-views.md) | Platform & seeker views + public application form | M2 | 06 |
-| [09](./09-apps.md) | Three apps with navigation and permission gating | M2 | 07, 08 |
-| [10](./10-seed-data.md) | Seed data: `demo-en` and `demo-zh` | M2 | 05 |
-| [11](./11-approval-flows.md) | Approval flows F1–F3 + `automation` capability | M3 | 06 |
-| [12](./12-notifications-jobs.md) | Notifications and scheduled jobs F4–F6 | M3 | 06 |
-| [13](./13-dashboards.md) | Three dashboards and their datasets | M3 | 10 |
-| [14](./14-release.md) | Release: README, live demo, CI, screenshots, CONTRIBUTING | M4 | 09, 11, 12, 13 |
+**Once M1 merges, five cards are unblocked at once** — #2, #3, #5, #6, #7 — which is the first point
+where parallel dispatch is worth anything.
+
+| Card | Issue | Title | Milestone | Blocked by |
+|:--|:--|:--|:--|:--|
+| ~~01–03~~ | — | Scaffold · dictionaries · employer domain | M1 | **landed** |
+| ~~04~~ | — | Candidate domain | M1 | **landed** |
+| ~~05~~ | — | Transaction domain | M1 | **landed** |
+| ~~06~~ | — | Positions, permission sets, RLS, FLS, hooks | M1 | **landed** |
+| [07](./07-employer-views.md) | [#2](https://github.com/objectstack-ai/ats/issues/2) | Employer views: pipeline kanban, inbox, interview calendar, talent pool | M2 | M1 |
+| [08](./08-platform-seeker-views.md) | [#3](https://github.com/objectstack-ai/ats/issues/3) | Platform & seeker views + public application form | M2 | M1 |
+| [09](./09-apps.md) | [#4](https://github.com/objectstack-ai/ats/issues/4) | Three apps with navigation and permission gating | M2 | #2, #3 |
+| [10](./10-seed-data.md) | [#5](https://github.com/objectstack-ai/ats/issues/5) | Seed data: `demo-en` and `demo-zh` | M2 | M1 |
+| [11](./11-approval-flows.md) | [#6](https://github.com/objectstack-ai/ats/issues/6) | Approval flows F1–F3 + `automation` capability | M3 | M1 |
+| [12](./12-notifications-jobs.md) | [#7](https://github.com/objectstack-ai/ats/issues/7) | Notifications and scheduled jobs F4–F6 | M3 | M1 |
+| [13](./13-dashboards.md) | [#8](https://github.com/objectstack-ai/ats/issues/8) | Three dashboards and their datasets | M3 | #5 |
+| [14](./14-release.md) | [#9](https://github.com/objectstack-ai/ats/issues/9) | Release: README, live demo, CI, screenshots, CONTRIBUTING | M4 | #4, #6, #7, #8 |
 
 Every card inherits the same acceptance floor: `pnpm validate && pnpm lint && pnpm typecheck` green,
 gate output pasted in the PR, one draft PR per card, no rider changes. Field lists and enum values are
