@@ -1,0 +1,177 @@
+# ATS — 设计蓝图
+
+> 本文是架构权威：对象、隔离模型、受众端、自动化、里程碑。改设计先改这里，再改代码。
+> 派发循环（`AGENTS.md` → PM dispatch）把它当作 ADR 目录使用：一个卡片与本文冲突时，本文胜出，或者先在这里落一条修订。
+
+## 01 定位与边界
+
+**平台型招聘，不是单企业 ATS。** 多雇主入驻、候选人求职、平台方治理。
+
+| 类型 | 谁在用 | 代表 | 本项目 |
+|---|---|---|---|
+| 单企业 ATS | 一家公司的 HR，管自己的招聘 | Greenhouse · Lever · Moka | 否 |
+| **平台型招聘** | 平台方运营，多雇主入驻，候选人求职 | BOSS 直聘 · 前程无忧 | **是** |
+
+选平台型的理由：开源里几乎空白；只入驻一个雇主它就退化为单企业 ATS；它正好压在 ObjectStack 的强项上（跨租户 RLS、审批链、审计、一套元数据三个受众端）。
+
+**范围内**：岗位发布与审核 · 投递与阶段流转 · 面试排期与评价 · Offer 与审批 · 候选人档案与持证 · 人才库检索 · 举报与处置 · 平台治理与看板。
+**范围外**：课程/考试（LMS）· IM 与社区 · 直播 · 支付 · 薪酬绩效与人事档案 · 简历解析与匹配算法。
+
+**命名纪律**：对象名、字段名、选项值一律通用，**零行业词汇**。行业特征只进种子数据 —— 换一套 seed 就是另一个行业的版本。
+
+## 02 对象模型
+
+前缀 `ats_`（Applicant Tracking System）。11 个对象，三个域，各对应一个受众端。
+
+```
+雇主域                      招聘事务域                   候选人域
+ats_employer   [private]    ats_application [private]    ats_candidate            [private]
+ats_employer_member [MD]    ats_interview   [MD]         ats_candidate_credential [MD]
+ats_job        [public_read] ats_offer      [private]    ats_skill                [public_read]
+                            ats_report      [private]    ats_credential_type      [public_read]
+```
+
+`[MD]` = master-detail 子对象，`sharingModel: 'controlled_by_parent'`。
+
+### 字段清单
+
+`*` = required；_斜体_ = 受字段级安全约束。枚举值即机器值。
+
+| 对象 | 字段 |
+|---|---|
+| `ats_employer` `private` | name* · short_name · logo · industry `technology/manufacturing/healthcare/retail/education/finance/logistics/hospitality/construction/other` · size `micro/small/medium/large` · city · website · intro richtext · **verification_status** `draft/pending/verified/rejected/suspended` · verification_docs file×n · _verification_note_（仅平台角色）· service_tier `trial/standard/premium` · service_expires_at · owner user · can_publish formula |
+| `ats_employer_member` `by parent` | display_name（存储镜像 "<user> · <access level>"，nameField）· employer* MD cascade inlineEdit grid · user* · access_level `admin/recruiter/viewer` · is_active |
+| `ats_job` `public_read` | title* · employer* lookup · department · description richtext · requirements richtext · employment_type `full_time/part_time/contract/internship/temporary` · work_mode `onsite/hybrid/remote` · city · salary_min / salary_max currency · salary_period `monthly/yearly/hourly` · headcount · required_skills lookup×n · required_credentials lookup×n · experience_min_years · education_min `none/high_school/associate/bachelor/master/doctorate` · **status** `draft/pending_review/published/paused/closed/rejected` · rejection_reason · _review_note_（仅平台角色）· is_featured · published_at · expires_at · is_open formula |
+| `ats_candidate` `private` | full_name* · user · avatar · _phone_ · _email_ · city · experience_years · education（同 job.education_min）· current_title · current_employer · skills lookup×n · summary · resume_file · _expected_salary_min / max_ · salary_period · seeking_status `actively_looking/open/not_looking` · profile_visibility `public/limited/hidden` |
+| `ats_candidate_credential` `by parent` | display_name（镜像 "<credential> · <level>"）· candidate* MD cascade · credential_type* lookup · level · certificate_no · issued_at · expires_at · certificate_file · verification_status `pending/verified/rejected` · is_expiring formula（90 天内到期）|
+| `ats_application` `private` | display_name（镜像 "<candidate> → <job>"）· job* · candidate* · employer lookup（RLS 冗余，beforeInsert 自 job 复制）· **stage*** `applied/screening/interview/offer/hired/rejected/withdrawn` · source `direct/referral/recommendation/agency/import` · applied_at · resume_snapshot · cover_letter · rating slider 1–5 · rejection_reason `not_a_fit/insufficient_experience/salary_mismatch/position_filled/candidate_withdrew/other` · last_activity_at。唯一索引 `(job, candidate)` scope organization |
+| `ats_interview` `by parent` | display_name（镜像 "<candidate> · R<round>"）· application* MD cascade · round · scheduled_at* datetime · duration_minutes · mode `onsite/video/phone` · location_or_link · interviewers user×n · status `scheduled/completed/cancelled/no_show` · rating · feedback |
+| `ats_offer` `private` | display_name · application* · employer lookup（RLS 冗余）· salary currency · salary_period · start_date · **status** `draft/pending_approval/approved/sent/accepted/declined/withdrawn` · approved_by user · expires_at · notes |
+| `ats_report` `private` | subject* · target_type* `job/candidate/application/employer` · target_ref* · reason `fake_info/harassment/spam/discrimination/other` · description · reporter user · status `new/investigating/resolved/dismissed` · resolution · handled_by user |
+| `ats_skill` `public_read` | name* · category `technical/domain/tool/language/soft` · aliases · description |
+| `ats_credential_type` `public_read` | name* · issuer · description · has_levels · validity_months |
+
+### 状态机（写入层强制，非前端隐藏）
+
+- `ats_employer.verification_status`：draft→pending；pending→verified/rejected；verified→suspended；rejected→pending；suspended→verified
+- `ats_job.status`：draft→pending_review；pending_review→published/rejected；published→paused/closed；paused→published/closed；rejected→draft/pending_review；closed 终态
+- `ats_application.stage`：applied→screening/rejected/withdrawn；screening→interview/rejected/withdrawn；interview→offer/rejected/withdrawn；offer→hired/rejected/withdrawn；hired/rejected/withdrawn 终态
+- `ats_offer.status`：draft→pending_approval/withdrawn；pending_approval→approved/draft；approved→sent/withdrawn；sent→accepted/declined/withdrawn；accepted/declined/withdrawn 终态
+- `ats_report.status`：new→investigating/dismissed；investigating→resolved/dismissed；resolved/dismissed 终态
+
+### 两个刻意的取舍
+
+- **没有「人才库」对象。** 人才库是 `ats_candidate` 上的筛选视图；多一个对象只会制造两份真相。
+- **`ats_credential_type` 进核心。** "持证上岗 + 到期复训"在护理、电工、消防、金融、特种作业都是硬需求，是国外开源 ATS 普遍缺的一块，也是本项目的真实差异点。
+
+### 与首版蓝图的修订
+
+- `ats_employer_member.member_role` → **`access_level`**：`role` 是平台保留词（ADR-0090 D3，`security-role-word`）。
+- 无自然标题的对象（member / credential / application / interview / offer）统一加**存储的 `display_name` 镜像**作 `nameField`：镜像必须是存储字段而非 formula（objectstack-data §Search Fields）。
+- `ats_job.application_count` **暂不做**：`summary` 汇总走 master-detail，而 application→job 是 lookup；数量由 #13 的 analytics dataset 计算。
+- `ats_report` 增加 `subject*` 作标题。
+
+## 03 隔离模型
+
+多雇主平台的核心风险只有一条：A 雇主看到 B 雇主的候选人。
+
+| 强度 | 对象 | 机制 |
+|---|---|---|
+| **硬隔离** | candidate · application · offer · employer · report | `private` + RLS。雇主侧归属统一经 `ats_employer_member`（user ∈ 该雇主的 active 成员）判定；求职者侧按 `user` 自持。越权可读即事故。 |
+| **软过滤** | job | `public_read` + 视图过滤 + FLS。岗位终将公开；草稿/待审靠列表条件与 App 导航隐藏，`review_note` 靠 FLS。**刻意降级，非遗漏**（见 08 Q1）。 |
+| 公开字典 | skill · credential_type | `public_read`，写权限仅平台角色。 |
+
+### 角色与权限矩阵
+
+五个 position ↔ 五个 permission set。R 读 · C 建 · U 改 · D 删；括号内为行级作用域。
+
+| 对象 | platform_admin | platform_ops | employer_admin | employer_recruiter | job_seeker |
+|---|---|---|---|---|---|
+| ats_employer | RCUD | RU（审核字段）| RU（本机构）| R（本机构）| R（仅 verified）|
+| ats_employer_member | RCUD | R | RCUD（本机构）| R（本机构）| — |
+| ats_job | RCUD | RU（审核字段）| RCU（本机构）| RCU（本机构）| R（仅 published）|
+| ats_candidate | RCUD | R | R（投递过本机构）| R（投递过本机构）| RCU（本人）|
+| ats_application | RCUD | R | RU（本机构）| RU（本机构）| RC（本人）|
+| ats_interview | RCUD | R | RCUD（本机构）| RCU（本机构）| R（本人）|
+| ats_offer | RCUD | R | RCU（本机构·审批人）| RC（本机构·提交）| RU（本人·接受/拒绝）|
+| ats_candidate_credential | RCUD | RU（核验）| R（随候选人）| R（随候选人）| RCUD（本人）|
+| ats_report | RCUD | RU（处置）| C | C | C |
+| ats_skill · ats_credential_type | RCUD | RCU | R | R | R |
+
+### 字段级安全
+
+| 字段 | 对谁遮蔽 | 理由 |
+|---|---|---|
+| `ats_candidate.phone / email` | employer_recruiter | 最易被批量抓取；仅 employer_admin 可见，读取落审计 |
+| `ats_candidate.expected_salary_*` | employer_admin · employer_recruiter | 期望薪资先于议价暴露损害候选人；候选人可经 `profile_visibility` 自主放开 |
+| `ats_job.review_note` · `ats_employer.verification_note` | 所有雇主侧与求职者角色 | 平台内部意见，驳回理由走独立字段回传 |
+
+## 04 视图与三端
+
+同一套对象元数据，三个 App 靠 `requiredPermissions` 与导航门控切分。
+
+| App | 导航 | 主视图 |
+|---|---|---|
+| `ats_admin_app` 平台运营端 | 待审队列 · 雇主 · 岗位 · 举报处置 · 字典维护 · 平台看板 | 雇主待审 grid · 岗位待审 grid · 举报 grid · 平台总览 dashboard |
+| `ats_employer_app` 雇主端 | 岗位 · 招聘看板 · 简历收件箱 · 面试日历 · 人才库 · 本机构看板 | **招聘看板** kanban(groupBy stage) · **面试日历** calendar(scheduled_at) · 收件箱 grid×5 listView · 人才库 grid + gallery |
+| `ats_seeker_app` 求职者端 | 找工作 · 我的投递 · 我的面试 · 我的档案 · 我的证书 | 职位检索 grid · 我的投递 timeline · 我的面试 calendar · 档案 form |
+
+**公开投递入口**：岗位详情挂 `sharing: { enabled: true, allowAnonymous: true }` 的公开表单视图，授权由表单声明推导，只接受白名单字段。
+
+**看板**：平台总览（雇主数 · 在招岗位 · 本月投递 · 活跃候选人 · 待审队列）· 录用转化漏斗（applied→screening→interview→offer→hired）· 雇主招聘看板（在招岗位 · 待处理简历 · 本周面试 · 平均到 Offer 天数）。
+
+## 05 自动化
+
+| # | 名称 | 类型 | 行为 |
+|---|---|---|---|
+| F1 | `employer_verification` | 审批链 | 雇主提交 → platform_ops 初审 → platform_admin 复核 → `verified` + 站内信；驳回回传理由 |
+| F2 | `job_publish_review` | 审批链 | `pending_review` → 平台审核 → `published` 并写 `published_at`，或 `rejected` + 理由 |
+| F3 | `offer_approval` | 审批链 | recruiter 提交 → employer_admin 审批 → `approved` → 发送。雇主内部审批 |
+| F4 | `application_stage_notify` | 记录触发 | `stage` 变更给候选人发站内信，刷新 `last_activity_at` |
+| F5 | `credential_expiry_reminder` | 定时（日）| 扫 `is_expiring`，提醒候选人；雇主端标红即将失效的在职候选人 |
+| F6 | `interview_reminder` | 定时（时）| T-24h 给候选人与面试官各发一次 |
+
+## 06 种子数据
+
+| 对象 | 条数 | 要点 |
+|---|---|---|
+| ats_employer | 12 | 跨行业；2 家 `pending` 让审核队列不空 |
+| ats_job | 40 | 覆盖全部 status；6 条 `pending_review`；4 条 `is_featured` |
+| ats_candidate | 80 | 带头像；经验与技能有梯度 |
+| ats_application | 200 | 按漏斗铺：applied 88 · screening 46 · interview 28 · offer 14 · hired 9 · rejected 15 |
+| ats_interview | 40 | **未来两周内**有排期 |
+| ats_offer | 14 | 3 条 `pending_approval` |
+| ats_skill / ats_credential_type | 60 / 15 | 字典先行 |
+
+两套种子，一份 schema：`demo-en`（默认，跨行业英文）· `demo-zh`（中文）。
+
+## 07 仓库与里程碑
+
+```
+objectstack.config.ts      defineStack 装配入口，engines.protocol '^17'
+src/objects/               11 个 *.object.ts
+src/views/                 看板 / 日历 / 收件箱 / 人才库 / 公开投递表单
+src/apps/                  3 个受众端
+src/flows/  src/jobs/      F1–F6
+src/dashboards/            3 个看板 + dataset
+src/security/              5 positions · 5 permission sets · RLS · FLS · onEnable 绑定
+src/hooks/                 display_name 镜像、employer 冗余字段的 stamp
+src/translations/          en / zh-CN
+src/data/                  demo-en/ · demo-zh/
+docs/backlog/              待派发卡片（正文即 issue body）
+```
+
+| 里程碑 | 内容 | 验收 |
+|---|---|---|
+| M1 数据与权限骨架 | 11 对象 + 5 positions/sets + RLS + FLS + 字典种子 | `validate`/`lint`/`typecheck` 绿；两个雇主账号经 REST 互相看不到对方数据 |
+| M2 视图与三端 | 看板 · 日历 · 收件箱 · 人才库 · 三个 App · 公开投递表单 · 全量种子 | 三个角色登录各见一套界面 |
+| M3 自动化与看板 | F1–F6 + 3 dashboard | 走通 发岗→审核→投递→面试→Offer 审批→录用，站内信与审计有记录 |
+| M4 可发布 | README 中英 · live demo · 截图 · CI · CONTRIBUTING | 陌生人 clone 后一条命令跑起来 |
+
+卡片切分见 `docs/backlog/README.md`。#1–#3（脚手架、字典、雇主域）已随初始提交落地。
+
+## 08 待裁决项
+
+**Q1 · 已发布岗位的可读性模型。** 当前 `ats_job` 用 `public_read`，草稿/待审靠视图条件隐藏。代价：草稿在对象层对所有登录用户可读，直接调 REST 能取到 —— 对终将公开的岗位可接受，但**不是安全边界**。可能升级：`private` + 按 `status == 'published'` 放开读的 sharing 规则；落地前先验证平台是否支持字段条件驱动的放开。
+
+**Q2 · 联系方式的动态可见性。** 理想：投递进入 `interview` 后雇主才见手机/邮箱。FLS 按角色静态判定，表达不了"随关联记录阶段变化"。当前降级：对 recruiter 恒隐藏、employer_admin 恒可见，另配"申请查看联系方式"动作（候选人同意 + 审计）。

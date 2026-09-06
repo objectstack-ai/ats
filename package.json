@@ -1,0 +1,28 @@
+{
+  "name": "ats",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Open-source recruiting marketplace built on ObjectStack — multi-employer job posting, candidate pipeline, interviews, offers and platform governance as typed metadata.",
+  "license": "Apache-2.0",
+  "engines": {
+    "pnpm": ">=10.15"
+  },
+  "scripts": {
+    "dev": "objectstack dev --ui",
+    "start": "objectstack start",
+    "build": "objectstack build",
+    "validate": "objectstack validate",
+    "lint": "objectstack lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@objectstack/spec": "^17.0.0",
+    "@objectstack/runtime": "^17.0.0",
+    "@objectstack/plugin-hono-server": "^17.0.0"
+  },
+  "devDependencies": {
+    "@objectstack/cli": "^17.0.0",
+    "typescript": "^6.0.0"
+  }
+}
