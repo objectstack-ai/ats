@@ -1,0 +1,13 @@
+# What `docker build` sends to the daemon. Dependencies are installed and the
+# artifact is compiled INSIDE the build stage, so nothing from a local install
+# or a previous build belongs in the context — and no secrets do either.
+node_modules
+dist
+.objectstack
+.git
+.github
+docs
+*.log
+.env
+.env.*
+.DS_Store

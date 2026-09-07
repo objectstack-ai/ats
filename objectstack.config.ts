@@ -8,6 +8,7 @@ import * as actions from './src/actions/index.js';
 import { AtsApp } from './src/apps/index.js';
 import * as dashboards from './src/dashboards/index.js';
 import * as datasets from './src/datasets/index.js';
+import { AtsTranslations } from './src/translations/index.js';
 import {
   PlatformAdminPosition,
   PlatformOpsPosition,
@@ -51,6 +52,16 @@ export default defineStack({
   // the `notify` nodes to the inbox (absent, notify reports success and
   // delivers nothing). All four providers ship with the CLI — no new package.
   requires: ['ui', 'automation', 'triggers', 'approvals', 'messaging'],
+
+  // Locales (card 14). `en` is the language of every inline label in src/ and
+  // the fallback; `zh-CN` is the second locale, authored in
+  // src/translations/zh-CN.ts with DESIGN.md's vocabulary. The list is a
+  // contract `pnpm lint` enforces: `objectstack lint --i18n-strict` fails on
+  // any translatable key that lacks one of these locales, so a new field or
+  // option lands with its Chinese label or not at all. Add a locale here and
+  // lint tells you every string it needs.
+  i18n: { defaultLocale: 'en', supportedLocales: ['en', 'zh-CN'], fallbackLocale: 'en' },
+  translations: [AtsTranslations],
 
   objects: Object.values(objects),
 

@@ -1,0 +1,47 @@
+# Single-host stack: the ATS app on its own sqlite database, in one container.
+#
+# Create a .env file next to this compose file (never committed — .gitignore
+# covers it) with OS_AUTH_SECRET and OS_SECRET_KEY (`openssl rand -hex 32`
+# each) and OS_PLATFORM_OWNER_EMAIL, then `docker compose up -d` and open
+# http://localhost:8080/_console/.
+#
+# ⚠️ Authored, not run: no Docker daemon was available where this file was
+# written (see the Dockerfile header for what WAS measured). Bring it up once
+# before you rely on it.
+#
+# Why sqlite and not the template's Postgres service: the app's dependency
+# tree carries the sqlite driver (better-sqlite3, the default `objectstack
+# dev` driver) and no `pg`. The template's Postgres pairing works because the
+# official runtime image installs `pg` itself; this image is built from the
+# app's own lockfile, where adding `pg` would be a new runtime dependency —
+# which this repository does not add without a decision (AGENTS.md →
+# Capability expansion). Pointing OS_DATABASE_URL at a Postgres URL from this
+# image therefore fails at boot on `Cannot find module 'pg'`, loudly.
+#
+# Docs: https://objectstack.ai/docs/deployment/self-hosting
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # Auth session secret and the platform's secret key — required.
+      OS_AUTH_SECRET: ${OS_AUTH_SECRET}
+      OS_SECRET_KEY: ${OS_SECRET_KEY}
+      # The account that receives platform-admin standing once it exists
+      # (README → Quick start). Not a demo persona: in production mode there is
+      # no demo seed, so this is whoever signs up first with this address.
+      OS_PLATFORM_OWNER_EMAIL: ${OS_PLATFORM_OWNER_EMAIL}
+      # Demo data on purpose? The seed is scoped to dev/test and a production
+      # boot loads none of it — no fictional employers, no `demo1234` logins.
+      # To run the demo in a container, uncomment the next line; never do this
+      # on a database you will keep (src/data/demo-seed-gate.ts).
+      # NODE_ENV: development
+    volumes:
+      # sqlite database + persisted crypto key + runtime-authored metadata.
+      - ats-data:/srv/app/.objectstack
+    restart: unless-stopped
+
+volumes:
+  ats-data:

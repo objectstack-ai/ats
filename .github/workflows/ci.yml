@@ -1,0 +1,70 @@
+# The three gates every change must pass, run by a machine instead of pasted
+# from a terminal (AGENTS.md → "Verify your work"). Until this file existed the
+# repository had no CI at all: every green tail on every merged PR was a person
+# or an agent copying terminal output into a PR body.
+#
+# What runs here is exactly `pnpm validate && pnpm lint && pnpm typecheck` —
+# the same commands, the same scripts in package.json, so a green run here and
+# a green run on a laptop mean the same thing. Each gate is its own step so a
+# red run names the gate that failed; `pnpm lint` carries `--i18n-strict`, so
+# a translatable key missing its zh-CN string is a failure, not a warning.
+#
+# Nothing here is allowed to skip: `--frozen-lockfile` refuses to resolve a
+# lockfile that disagrees with package.json instead of quietly rewriting it,
+# and the job has no `continue-on-error`, no `if:` and no matrix — one job,
+# one Node, one pnpm, both pinned to what the repository is developed on.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same PR cancels the run it supersedes; runs on `main`
+# are never cancelled, so its history stays a complete record.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    name: validate · lint · typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm before Node so `actions/setup-node` can cache the pnpm store.
+      # The version is pinned to the one the lockfile is maintained with
+      # (`pnpm --version` in the repository at the time of writing); package.json
+      # declares `engines.pnpm >=10.15`, and pnpm-workspace.yaml explains why.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Print toolchain
+        run: |
+          node --version
+          pnpm --version
+          pnpm exec objectstack --version
+
+      - name: validate — protocol schema, CEL predicates, widget bindings
+        run: pnpm validate
+
+      - name: lint — data-model conventions + zh-CN translation parity
+        run: pnpm lint
+
+      - name: typecheck
+        run: pnpm typecheck
