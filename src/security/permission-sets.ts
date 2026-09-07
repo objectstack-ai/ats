@@ -46,6 +46,8 @@ export const PlatformAdminSet = definePermissionSet({
   name: 'ats_platform_admin',
   label: 'Platform Administrator',
   description: 'Full reach over every ATS object, org-wide.',
+  // Unlocks the Platform navigation group of the `ats` app (DESIGN.md §04).
+  systemPermissions: ['ats_platform.access'],
   objects: {
     ats_employer:             { allowRead: true, allowCreate: true, allowEdit: true, allowDelete: true, viewAllRecords: true, modifyAllRecords: true },
     ats_employer_member:      { allowRead: true, allowCreate: true, allowEdit: true, allowDelete: true, viewAllRecords: true, modifyAllRecords: true },
@@ -70,6 +72,7 @@ export const PlatformOpsSet = definePermissionSet({
   name: 'ats_platform_ops',
   label: 'Platform Operations',
   description: 'Reviews employers, jobs and reports; maintains the shared dictionaries.',
+  systemPermissions: ['ats_platform.access'],
   objects: {
     ats_employer:             { allowRead: true, allowEdit: true, viewAllRecords: true },
     ats_employer_member:      { allowRead: true, viewAllRecords: true },
@@ -90,6 +93,8 @@ export const EmployerAdminSet = definePermissionSet({
   name: 'ats_employer_admin',
   label: 'Employer Administrator',
   description: "Manages one employer's staff, jobs, pipeline and offers.",
+  // Unlocks the Hiring navigation group of the `ats` app (DESIGN.md §04).
+  systemPermissions: ['ats_employer.access'],
   objects: {
     ats_employer:             { allowRead: true, allowEdit: true, readScope: 'org', writeScope: 'org' },
     ats_employer_member:      { allowRead: true, allowCreate: true, allowEdit: true, allowDelete: true, readScope: 'org', writeScope: 'org' },
@@ -139,6 +144,7 @@ export const EmployerRecruiterSet = definePermissionSet({
   name: 'ats_employer_recruiter',
   label: 'Recruiter',
   description: "Works one employer's pipeline. No candidate contact details, no salary expectations.",
+  systemPermissions: ['ats_employer.access'],
   objects: {
     ats_employer:             { allowRead: true, readScope: 'org' },
     ats_employer_member:      { allowRead: true, readScope: 'org' },
@@ -187,6 +193,8 @@ export const JobSeekerSet = definePermissionSet({
   name: 'ats_job_seeker',
   label: 'Job Seeker',
   description: 'Owns one profile, its credentials, and the applications made from it.',
+  // Unlocks the Job Seeker navigation group of the `ats` app (DESIGN.md §04).
+  systemPermissions: ['ats_seeker.access'],
   objects: {
     ats_employer:             { allowRead: true, readScope: 'org' },
     ats_job:                  { allowRead: true, readScope: 'org' },
