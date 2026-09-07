@@ -1,6 +1,7 @@
 import { defineStack } from '@objectstack/spec';
 import * as objects from './src/objects/index.js';
 import { allHooks } from './src/hooks/index.js';
+import * as flows from './src/flows/index.js';
 import {
   PlatformAdminPosition,
   PlatformOpsPosition,
@@ -37,13 +38,21 @@ export default defineStack({
   },
 
   // `ui` serves the Console so the app can be browsed as soon as it boots.
-  // `automation` is added in M3 when the approval flows land.
-  requires: ['ui'],
+  // The approval flows (F1–F3, src/flows/) need four tokens, not one:
+  // `automation` is the flow engine; `triggers` arms their `record_change`
+  // start nodes (defineStack refuses a triggered flow without it);
+  // `approvals` contributes the `approval` node executor; `messaging` delivers
+  // the `notify` nodes to the inbox (absent, notify reports success and
+  // delivers nothing). All four providers ship with the CLI — no new package.
+  requires: ['ui', 'automation', 'triggers', 'approvals', 'messaging'],
 
   objects: Object.values(objects),
 
   // Logic — the stamps that make row-level scoping resolvable (see stamp.hook.ts).
   hooks: allHooks,
+
+  // Automation — the approval chains F1–F3 (DESIGN.md §05).
+  flows: Object.values(flows),
 
   // Security — capability containers plus the row- and field-level scopes.
   positions: [
