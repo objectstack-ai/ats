@@ -17,9 +17,13 @@ import type { NavigationItemInput } from '@objectstack/spec/ui';
  * `ats_skill`, `ats_credential_type`) land on the default list — `viewName`
  * defaults to `all`, which the shell synthesises when nothing is declared.
  *
- * Dashboards join this navigation with card 13.
+ * The two dashboards (card 13) lead: the overview is what the operator opens
+ * first, and the funnel is the marketplace-wide pipeline — read through the
+ * platform sets' `viewAllRecords`, so it counts every employer's applications.
  */
 export const PlatformNavigation: NavigationItemInput[] = [
+  { id: 'nav_platform_overview', type: 'dashboard', label: 'Platform Overview', icon: 'layout-dashboard', dashboardName: 'ats_platform_overview' },
+  { id: 'nav_platform_funnel',   type: 'dashboard', label: 'Hiring Funnel',     icon: 'filter',           dashboardName: 'ats_hiring_funnel' },
   {
     id: 'grp_platform_review_queue',
     type: 'group',

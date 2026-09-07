@@ -1,0 +1,51 @@
+# browser pass · memory driver · 2026-09-07T15:02:34Z
+
+## 01-platform-overview-memory-platform-admin
+signed in as admin@platform.example -> http://localhost:4333/_console/
+dashboard url: http://localhost:4333/_console/apps/ats/dashboard/ats_platform_overview
+page title: ATS — ObjectOS
+dataset queries issued by the page: 7
+--- main text ---
+Platform Overview | Employers, open jobs, applications this month, active candidates and the review queue. | Verified Employers | 9 | Employers | Open Jobs | Published jobs. | 22 | Jobs | Applications This Month | Applied since the 1st of this month. | 30 | Applications | Active Candidates | Seeking status other than "not looking". | 70 | Candidates | Review Queue · Employers | Employers awaiting verification. | 2 | Employers | Review Queue · Jobs | Jobs awaiting publication review. | 6 | Jobs | Applications per Week | Applications filed in the last 12 weeks, by ISO week. | 2026-W27 | 2026-W28 | 2026-W29 | 2026-W30 | 2026-W31 | 2026-W32 | 2026-W33 | 2026-W34 | 2026-W35 | 2026-W36 | Week | 0 | 2 | 4 | 6 | 8 | Applications
+console errors (3): Failed to load resource: the server responded with a status of 404 (Not Found) || Failed to load resource: the server responded with a status of 403 (Forbidden) || HTTP request failed: GET /api/v1/data/sys_activity?top=20&sort=-timestamp -> 403 [PERMISSION_DENIED]  {method: GET, url: /api/v1/data/sys_activity?top=20&sort=-timestamp, status: 403, error: Object}
+screenshot: /home/user/ats-issue-8/docs/evidence/issue-8/01-platform-overview-memory-platform-admin.png
+
+## 02-hiring-funnel-memory-platform-admin
+signed in as admin@platform.example -> http://localhost:4333/_console/
+dashboard url: http://localhost:4333/_console/apps/ats/dashboard/ats_hiring_funnel
+page title: ATS — ObjectOS
+dataset queries issued by the page: 4
+--- main text ---
+Hiring Funnel | Applications by pipeline stage, stage-to-stage ratios, and the two exits kept out of the funnel. | Pipeline Funnel | Applications currently in each progressing stage. | Applied | Screening | Interview | Offer | Hired | Rejected | Exited the pipeline — not a funnel stage. | 15 | Applications | Withdrawn | Candidate withdrew — not a funnel stage. | 0 | Applications | In Pipeline | Applications in the five progressing stages. | 185 | Applications
+console errors (3): Failed to load resource: the server responded with a status of 404 (Not Found) || Failed to load resource: the server responded with a status of 403 (Forbidden) || HTTP request failed: GET /api/v1/data/sys_activity?top=20&sort=-timestamp -> 403 [PERMISSION_DENIED]  {method: GET, url: /api/v1/data/sys_activity?top=20&sort=-timestamp, status: 403, error: Object}
+screenshot: /home/user/ats-issue-8/docs/evidence/issue-8/02-hiring-funnel-memory-platform-admin.png
+
+## 05-employer-hiring-memory-platform-admin
+signed in as admin@platform.example -> http://localhost:4333/_console/
+dashboard url: http://localhost:4333/_console/apps/ats/dashboard/ats_employer_hiring
+page title: ATS — ObjectOS
+dataset queries issued by the page: 4
+--- main text ---
+Hiring Overview | Your open jobs, applications awaiting action, interviews this week and the pipeline by stage. | Open Jobs | Published jobs. | 22 | Jobs | Applications Awaiting Action | In "applied" or "screening". | 134 | Applications | Interviews This Week | Rounds scheduled Monday to Sunday, cancelled ones excluded. | 18 | Interviews | Pipeline by Stage | Your applications in each stage, exits included. | Interview | Applications | 28 | Hired | Offer | Interview | Applied | Screening | Rejected | Stage | 0 | 25 | 50 | 75 | 100 | Applications
+console errors (3): Failed to load resource: the server responded with a status of 404 (Not Found) || Failed to load resource: the server responded with a status of 403 (Forbidden) || HTTP request failed: GET /api/v1/data/sys_activity?top=20&sort=-timestamp -> 403 [PERMISSION_DENIED]  {method: GET, url: /api/v1/data/sys_activity?top=20&sort=-timestamp, status: 403, error: Object}
+screenshot: /home/user/ats-issue-8/docs/evidence/issue-8/05-employer-hiring-memory-platform-admin.png
+
+## 03-employer-hiring-memory-quillstone-admin
+signed in as admin@quillstone.example -> http://localhost:4333/_console/
+dashboard url: http://localhost:4333/_console/apps/ats/dashboard/ats_employer_hiring
+page title: ATS — ObjectOS
+dataset queries issued by the page: 4
+--- main text ---
+Hiring Overview | Your open jobs, applications awaiting action, interviews this week and the pipeline by stage. | Open Jobs | Published jobs. | 3 | Jobs | Applications Awaiting Action | In "applied" or "screening". | 18 | Applications | Interviews This Week | Rounds scheduled Monday to Sunday, cancelled ones excluded. | 6 | Interviews | Pipeline by Stage | Your applications in each stage, exits included. | Interview | Applications | 5 | Hired | Offer | Interview | Applied | Screening | Rejected | Stage | 0 | 3 | 6 | 9 | 12 | Applications
+console errors (1): Failed to load resource: the server responded with a status of 404 (Not Found)
+screenshot: /home/user/ats-issue-8/docs/evidence/issue-8/03-employer-hiring-memory-quillstone-admin.png
+
+## 04-employer-hiring-memory-harborline-admin
+signed in as admin@harborline.example -> http://localhost:4333/_console/
+dashboard url: http://localhost:4333/_console/apps/ats/dashboard/ats_employer_hiring
+page title: ATS — ObjectOS
+dataset queries issued by the page: 4
+--- main text ---
+Hiring Overview | Your open jobs, applications awaiting action, interviews this week and the pipeline by stage. | Open Jobs | Published jobs. | 3 | Jobs | Applications Awaiting Action | In "applied" or "screening". | 21 | Applications | Interviews This Week | Rounds scheduled Monday to Sunday, cancelled ones excluded. | 1 | Interviews | Pipeline by Stage | Your applications in each stage, exits included. | Interview | Applications | 3 | Applied | Offer | Interview | Screening | Hired | Rejected | Stage | 0 | 4 | 8 | 12 | 16 | Applications
+console errors (1): Failed to load resource: the server responded with a status of 404 (Not Found)
+screenshot: /home/user/ats-issue-8/docs/evidence/issue-8/04-employer-hiring-memory-harborline-admin.png

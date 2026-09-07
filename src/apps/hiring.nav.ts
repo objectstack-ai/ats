@@ -12,9 +12,12 @@ import type { NavigationItemInput } from '@objectstack/spec/ui';
  * — anonymous applications from the public form, not yet converted — sit
  * above it: an employer sees the ones for its own jobs (`employer_org`). The talent
  * pool entry lands on the filterable grid; the gallery is one view-switch away
- * on the same surface. The dashboard joins with card 13.
+ * on the same surface. The dashboard (card 13) leads: it reads the same
+ * objects through the same row-level rule, so it is this employer's numbers
+ * with no filter of its own.
  */
 export const HiringNavigation: NavigationItemInput[] = [
+  { id: 'nav_hiring_overview', type: 'dashboard', label: 'Hiring Overview', icon: 'layout-dashboard', dashboardName: 'ats_employer_hiring' },
   { id: 'nav_hiring_jobs',     type: 'object', label: 'Jobs',     icon: 'briefcase', objectName: 'ats_job',         viewName: 'mine' },
   { id: 'nav_hiring_pipeline', type: 'object', label: 'Pipeline', icon: 'kanban',    objectName: 'ats_application', viewName: 'pipeline' },
   { id: 'nav_hiring_inquiries', type: 'object', label: 'Inquiries', icon: 'mail-plus', objectName: 'ats_inquiry',     viewName: 'inbox' },

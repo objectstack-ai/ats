@@ -6,6 +6,8 @@ import { allHooks } from './src/hooks/index.js';
 import * as flows from './src/flows/index.js';
 import * as actions from './src/actions/index.js';
 import { AtsApp } from './src/apps/index.js';
+import * as dashboards from './src/dashboards/index.js';
+import * as datasets from './src/datasets/index.js';
 import {
   PlatformAdminPosition,
   PlatformOpsPosition,
@@ -69,6 +71,13 @@ export default defineStack({
   // Actions — inquiry triage (convert / reject / spam, declarative single-row
   // updates written AS THE CALLER) and the job page's public apply link.
   actions: Object.values(actions),
+
+  // Analytics — the semantic layer (ADR-0021) and the three dashboards over it
+  // (card 13, DESIGN.md §04). Widgets bind datasets and measures BY NAME;
+  // `validate` refuses a binding that resolves to nothing, because at runtime
+  // it would render an empty tile indistinguishable from "no data yet".
+  datasets: Object.values(datasets),
+  dashboards: Object.values(dashboards),
 
   // The one app: three audience groups (Platform · Hiring · Job Seeker), each
   // gated by a capability the permission sets grant (DESIGN.md §04). An
