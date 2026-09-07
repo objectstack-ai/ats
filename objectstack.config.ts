@@ -1,5 +1,6 @@
 import { defineStack } from '@objectstack/spec';
 import * as objects from './src/objects/index.js';
+import { data } from './src/data/index.js';
 import { allHooks } from './src/hooks/index.js';
 import {
   PlatformAdminPosition,
@@ -41,6 +42,9 @@ export default defineStack({
   requires: ['ui'],
 
   objects: Object.values(objects),
+
+  // Data — the demo seed; `OS_SEED_LOCALE` selects demo-en (default) or demo-zh.
+  data,
 
   // Logic — the stamps that make row-level scoping resolvable (see stamp.hook.ts).
   hooks: allHooks,
