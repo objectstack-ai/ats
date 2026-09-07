@@ -21,6 +21,14 @@ export const Candidate = ObjectSchema.create({
   // tenant wall and isolation is carried by the row-level rules alone.
   tenancy: { enabled: false },
   nameField: 'full_name',
+  // ADR-0085 ordered "most important fields". The seeker's "My Profile" entry
+  // is a `filters` slice (`{ user: '{current_user_id}' }`) on the bare data
+  // surface, so it derives its columns from this and nothing else; undeclared,
+  // the walk led with `Account`, `Photo` and `Phone` (#33). Listing
+  // `profile_visibility` makes the value legible to whoever may already read
+  // the row — it does not make it enforced; that is #13's job, and no entry
+  // here should be mistaken for it.
+  highlightFields: ['full_name', 'current_title', 'city', 'seeking_status', 'experience_years', 'profile_visibility'],
 
   fields: {
     full_name: Field.text({
