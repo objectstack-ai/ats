@@ -42,7 +42,7 @@ ats_job        [public_read] ats_offer      [private]    ats_skill              
 | `ats_employer` `private` | name* · short_name · logo · industry `technology/manufacturing/healthcare/retail/education/finance/logistics/hospitality/construction/other` · size `micro/small/medium/large` · city · website · intro richtext · **verification_status** `draft/pending/verified/rejected/suspended` · verification_docs file×n · _verification_note_（仅平台角色）· service_tier `trial/standard/premium` · service_expires_at · owner user · can_publish formula |
 | `ats_employer_member` `by parent` | display_name（存储镜像 "<user> · <access level>"，nameField）· employer* MD cascade inlineEdit grid · user* · access_level `admin/recruiter/viewer` · is_active |
 | `ats_job` `public_read` | title* · employer* lookup · department · description richtext · requirements richtext · employment_type `full_time/part_time/contract/internship/temporary` · work_mode `onsite/hybrid/remote` · city · salary_min / salary_max currency · salary_period `monthly/yearly/hourly` · headcount · required_skills lookup×n · required_credentials lookup×n · experience_min_years · education_min `none/high_school/associate/bachelor/master/doctorate` · **status** `draft/pending_review/published/paused/closed/rejected` · rejection_reason · _review_note_（仅平台角色）· is_featured · published_at · expires_at · is_open formula |
-| `ats_candidate` `private` | full_name* · user · avatar · _phone_ · _email_ · city · experience_years · education（同 job.education_min）· current_title · current_employer · skills lookup×n · summary · resume_file · _expected_salary_min / max_ · salary_period · seeking_status `actively_looking/open/not_looking` · profile_visibility `public/limited/hidden` |
+| `ats_candidate` `private` | full_name* · user · avatar · _phone_ · _email_ · city · experience_years · education（同 job.education_min）· current_title · current_employer · skills lookup×n · summary · resume_file · _expected_salary_min / max_ · salary_period · seeking_status `actively_looking/open/not_looking` · profile_visibility `public/limited/hidden`（public/limited 对所有雇主可发现，二者仅呈现面不同；hidden 仅投递过的雇主可达，由 RLS 强制 —— 见 §03《候选人同意门控池》）|
 | `ats_candidate_credential` `by parent` | display_name（镜像 "<credential> · <level>"）· candidate* MD cascade · credential_type* lookup · level · certificate_no · issued_at · expires_at · certificate_file · verification_status `pending/verified/rejected` · is_expiring formula（90 天内到期）|
 | `ats_application` `private` | display_name（镜像 "<candidate> → <job>"）· job* · candidate* · employer lookup（RLS 冗余，beforeInsert 自 job 复制）· **stage*** `applied/screening/interview/offer/hired/rejected/withdrawn` · source `direct/referral/recommendation/agency/import` · applied_at · resume_snapshot · cover_letter · rating slider 1–5 · rejection_reason `not_a_fit/insufficient_experience/salary_mismatch/position_filled/candidate_withdrew/other` · last_activity_at。唯一索引 `(job, candidate)` scope organization |
 | `ats_interview` `by parent` | display_name（镜像 "<candidate> · R<round>"）· application* MD cascade · round · scheduled_at* datetime · duration_minutes · mode `onsite/video/phone` · location_or_link · interviewers user×n · status `scheduled/completed/cancelled/no_show` · rating · feedback |
@@ -77,7 +77,7 @@ ats_job        [public_read] ats_offer      [private]    ats_skill              
 
 | 强度 | 对象 | 机制 |
 |---|---|---|
-| **硬隔离** | candidate · application · offer · employer · report | `private` + `readScope: 'org'` + RLS。雇主侧经 `record.employer_org in current_user.employer_org_ids` 判定（`employer_org_ids` 由应用自有的 membership resolver 转发内核算好的 `accessible_org_ids`，见下）；求职者侧按 `user` / `candidate_user` 自持。越权可读即事故。 |
+| **硬隔离** | candidate · application · offer · employer · report | `private` + `readScope: 'org'` + RLS。雇主侧经 `record.employer_org in current_user.employer_org_ids` 判定（`employer_org_ids` 由应用自有的 membership resolver 转发内核算好的 `accessible_org_ids`，见下）；candidate 一行没有 `employer_org`，雇主侧按**同意门控池**判定（`profile_visibility` ∪ 本机构申请人，见下节）；求职者侧按 `user` / `candidate_user` 自持。越权可读即事故。 |
 | **软过滤** | job | `public_read` + 视图过滤 + FLS。岗位终将公开；草稿/待审靠列表条件与 App 导航隐藏，`review_note` 靠 FLS。**刻意降级，非遗漏**（见 08 Q1）。 |
 | 公开字典 | skill · credential_type | `public_read`，写权限仅平台角色。 |
 
@@ -111,6 +111,7 @@ ats_job        [public_read] ats_offer      [private]    ats_skill              
 在每次请求时**收到** `accessible_org_ids` 作为输入 —— 内核算好后交给 resolver，只是从不交给编译器。所以本仓库自有一个 resolver
 （`src/security/rls-membership-resolver.ts`）把同一个集合以 `employer_org_ids` 之名重新发布，十条雇主侧策略据此写
 `record.employer_org in current_user.employer_org_ids`（`ats_employer` 上 `record.organization`），`check` 子句同。
+自 #13 起同一个 resolver 还按请求预解析并发布 `applicant_candidate_ids`（见《候选人同意门控池》）。
 不发明数据、不放宽任何授权：集合就是内核已经解析的那一个；无成员资格的调用者得到空集，谓词编译成 `$in: []`，fail-closed 到零行。
 
 **为什么应用要自己拥有一个 resolver，而不是直接用 `accessible_org_ids`。** 因为那个名字在 RLS 里根本不到场（上面的问题），
@@ -158,6 +159,51 @@ Layer 0 墙不是全有全无的。`plugin-security/src/security-plugin.ts:2940`
 墙立起来之后会变成一堵真墙，把候选人锁进一个谁都不该属于的租户里；而任何 `sys_member` 行把用户接进那个组织，
 就能通过组织范围规则读到全部候选人。**用 `tenancy: { enabled: false }` 说实话。**
 
+### 候选人同意门控池（2026-09-07 裁决，#13）
+
+**裁决（维护者）。** 雇主可发现 `profile_visibility` 为 `public` 或 `limited` 的候选人；`hidden` 的候选人**只有**其投递过的雇主可达。
+
+**此前的事实。** 两个雇主权限集对 `ats_candidate` 只有 `{ allowRead: true, readScope: 'org' }`，没有任何 RLS 策略。
+`readScope: 'org'` 在 plugin-sharing 里的含义是**不加 owner 过滤**（`buildReadFilter`：`if (readScope === 'org') return null`）——
+它不按组织过滤，而是把边界交给 Layer 0 与 RLS；`ats_candidate` 在墙外又没有策略，于是每个雇主读到全部 80 条，`hidden` 在内
+（memory 与 sqlite 一致，#13 实测）。
+
+**动手前的两项实测（cli 17.3.0，memory 与 sqlite 各跑一次）。**
+
+| 问题 | 探针 | memory | sqlite | 结论 |
+|---|---|---|---|---|
+| 同一权限集内同一对象的多条 RLS 策略如何组合 | 招聘专员集上放两条**互斥**字面策略 `profile_visibility == 'public'` 与 `== 'hidden'`（种子 19 + 13） | 32 行 | 32 行 | **并集（OR）**；交集会是 0。编译器把同一对象/操作的全部适用策略收进一个 `$or`（`compileFilter`） |
+| 多值包含能否表达：`record.<数组字段> in current_user.<集合>` | 临时 `exposed_org_ids`（`multiple: true`）字段 + 策略 `record.exposed_org_ids in current_user.employer_org_ids`，种子给 5 名候选人各 1–2 个组织 | Quillstone 4 / Harborline 1（重叠语义成立，含匹配在第二个元素的行） | **每次雇主读取都是 HTTP 400**：`Operator "$in" on field "exposed_org_ids" WAS NOT APPLIED … JSON TEXT column`（driver-sql #7398） | **不可移植**：RLS 编译器把 `in` 一律降为 `{ field: { $in } }`，不知道字段是数组；SQL 驱动拒绝对 JSON 列用 `$in`。反向拼写、`.exists()`、`.contains(变量)` 在编译期即被拒 |
+
+**为什么既不是数组载体，也不是连接对象。** 数组载体如上被 sqlite 整体拒绝，且不是静默零行而是整个对象对雇主报错。
+连接对象（candidate × employer_org）自身能被雇主读到，但候选人**那一行**仍然读不到：列表、直读 `GET /api/v1/data/ats_candidate/ID`、
+投递上的 candidate lookup 都走同一条 `ats_candidate` 策略，而该策略引用不了连接对象（ADR-0055）。结果会是雇主在自己的看板上
+打不开自己申请人的档案 —— 与验收第 3 条相反，也与 §02「没有人才库对象」的取舍相悖。
+
+**采用的机制：预解析的申请人集合。** RLS 契约（`IRlsMembershipResolver`，`@objectstack/spec` `contracts`）明文把
+「本需子查询的集合成员判定」交给运行时**预解析**进 `current_user.<key>`，并点名用途是「应用形状的集合：销售代表辖区内的账户、
+案件组能触碰的记录」。本仓库已有的 resolver（`src/security/rls-membership-resolver.ts`）因此多发布一个键 `applicant_candidate_ids`：
+按请求读取 `ats_application` 中 `employer_org` 落在调用者组织集合内的行，取 `candidate` 去重。两个雇主集各带两条 SELECT 策略，按并集组合：
+
+```
+record.profile_visibility in ['public', 'limited']      池
+record.id in current_user.applicant_candidate_ids       本机构申请人
+```
+
+编译为标量 `id IN (…)`，两个驱动行为一致。分成两条而不写成一条 `||`：申请人集合解析失败时只有那一条脱落，雇主仍保有池；
+一条不可解析的 `||` 谓词会整体 DENY。
+
+**代价与边界（如实）。** 每个持有雇主成员资格的调用者每请求多一次 `ats_application` 读取（求职者与平台人员跳过）；
+上限 5000 行，超出即**截断**（失败方向是变窄，不是变宽）；「投递过」= 存在申请行，与阶段无关；集合是活的 ——
+新投递下一请求即可达，删除投递即撤回；没有 stamp hook，`claimSeedOwnership` 的谓词更新无列可污染（#43 的教训）。
+
+**`limited` 的含义。** FLS 按权限集静态判定，不能让同一权限集对某一行遮蔽某个字段，所以 `limited` 不可能是「比 public 少几个字段」。
+本仓库选择：`public` 与 `limited` 在访问上**完全等价**，只在呈现面不同 —— 人才库 grid 列出两者，Gallery 只展示 `public`。
+这是呈现约定，**不是安全边界**，字段描述与视图注释都这样写；不再有「读起来像访问控制却什么都不强制」的第三档。
+另一条可选路线（把 `limited` 退役、改为 discoverable/hidden 两档）改动枚举值这一公开契约与 48 条种子，且改写了裁决自己的用词，未采用。
+
+**验收读数**（memory 与 sqlite 各一张按人物的表、直读与 lookup 的探针、消融）见 #13 的 PR 正文。
+
 ### 自助入驻的现状与到期条件（2026-09-07）
 
 **求职者**：能自助注册，但需要两个配置动作，默认都是关的 ——
@@ -191,7 +237,7 @@ Layer 0 墙不是全有全无的。`plugin-security/src/security-plugin.ts:2940`
 | ats_employer | RCUD | RU（审核字段）| RU（本机构）| R（本机构）| R（仅 verified）|
 | ats_employer_member | RCUD | R | RCUD（本机构）| R（本机构）| — |
 | ats_job | RCUD | RU（审核字段）| RCU（本机构）| RCU（本机构）| R（仅 published）|
-| ats_candidate | RCUD | R | R（投递过本机构）| R（投递过本机构）| RCU（本人）|
+| ats_candidate | RCUD | R | R（同意门控池：public/limited 全部 ∪ 投递过本机构的 hidden）| R（同上）| RCU（本人）|
 | ats_application | RCUD | R | RU（本机构）| RU（本机构）| RC（本人）|
 | ats_interview | RCUD | R | RCUD（本机构）| RCU（本机构）| R（本人）|
 | ats_offer | RCUD | R | RCU（本机构·审批人）| RC（本机构·提交）| RU（本人·接受/拒绝）|
@@ -204,7 +250,7 @@ Layer 0 墙不是全有全无的。`plugin-security/src/security-plugin.ts:2940`
 | 字段 | 对谁遮蔽 | 理由 |
 |---|---|---|
 | `ats_candidate.phone / email` | employer_recruiter | 最易被批量抓取；仅 employer_admin 可见，读取落审计 |
-| `ats_candidate.expected_salary_*` | employer_admin · employer_recruiter | 期望薪资先于议价暴露损害候选人；候选人可经 `profile_visibility` 自主放开 |
+| `ats_candidate.expected_salary_*` | employer_admin · employer_recruiter | 期望薪资先于议价暴露损害候选人。FLS 按权限集静态判定，`profile_visibility` **不能**按行放开任何字段 —— 原句「候选人可经 `profile_visibility` 自主放开」是一个没有实现也实现不了的承诺，#13 删除 |
 | `ats_job.review_note` · `ats_employer.verification_note` | 所有雇主侧与求职者角色 | 平台内部意见，驳回理由走独立字段回传 |
 
 ## 04 视图与受众端

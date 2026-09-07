@@ -1,9 +1,12 @@
 import { ObjectSchema, Field } from '@objectstack/spec/data';
 
 /**
- * A person looking for work. Owned by the candidate themself — an employer only
- * ever reaches one through an application to its own job, and the contact and
- * salary-expectation fields stay masked even then (DESIGN.md §03).
+ * A person looking for work. Owned by the candidate themself. Employers reach
+ * it through the consent-gated pool (DESIGN.md §03, #13): a `public` or
+ * `limited` profile is discoverable by every employer, a `hidden` one only by
+ * an employer the candidate applied to — enforced by the row-level policies in
+ * the employer permission sets, never by a view. The contact and
+ * salary-expectation fields stay masked by field-level security regardless.
  */
 export const Candidate = ObjectSchema.create({
   name: 'ats_candidate',
@@ -80,15 +83,19 @@ export const Candidate = ObjectSchema.create({
         { label: 'Not looking',      value: 'not_looking',                    color: '#94A3B8' },
       ],
     }),
+    // Which employers may reach this profile at all. Row-level security reads
+    // it (permission-sets.ts); field-level security does NOT — FLS is static
+    // per permission set, so no value here can open or seal a field per row.
     profile_visibility: Field.select({
       label: 'Profile Visibility',
       required: true,
       defaultValue: 'limited',
-      description: 'How much of this profile employers may see before the candidate agrees.',
+      description:
+        'Who may find this profile. `public` and `limited` are both discoverable by every employer and differ only in presentation — `public` is showcased in the gallery, `limited` is found through the Talent Pool search only; that split is not a security boundary. `hidden` is enforced: the profile is reachable only by employers this candidate has applied to.',
       options: [
-        { label: 'Public',  value: 'public' },
-        { label: 'Limited', value: 'limited', default: true },
-        { label: 'Hidden',  value: 'hidden' },
+        { label: 'Public',                value: 'public' },
+        { label: 'Limited (search only)', value: 'limited', default: true },
+        { label: 'Hidden',                value: 'hidden' },
       ],
     }),
   },

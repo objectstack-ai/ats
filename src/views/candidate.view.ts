@@ -5,8 +5,18 @@ import type { ListColumn } from '@objectstack/spec/ui';
  * Views over `ats_candidate`: the employer's talent pool (card 07) and the
  * seeker's own profile form (card 08). There is no talent-pool object on
  * purpose (DESIGN.md §02): it is `ats_candidate` seen through these views.
+ *
  * Which candidates an employer may see at all is the permission set's
- * decision; the contact and salary fields stay masked by field-level security.
+ * decision — the consent-gated pool (DESIGN.md §03, #13): `public` and
+ * `limited` profiles for every employer, plus this employer's own applicants
+ * whatever their visibility. The `filter` on each list below only narrows
+ * WITHIN that: the Talent Pool lists the two discoverable tiers, the Gallery
+ * showcases `public` alone. That is the whole difference between `public`
+ * and `limited` — presentation, documented as such on the field — because
+ * field-level security is static per permission set and cannot vary by row.
+ * A `hidden` applicant is reached through the pipeline (the application's
+ * candidate lookup) and by direct link, not by browsing a pool. The contact
+ * and salary fields stay masked by field-level security.
  */
 
 const data = { provider: 'object' as const, object: 'ats_candidate' };
@@ -26,12 +36,17 @@ export const CandidateViews = defineView({
   object: 'ats_candidate',
 
   listViews: {
-    /** Grid with the end-user filter bar on skills, city and experience. */
+    /**
+     * Grid with the end-user filter bar on skills, city and experience. The
+     * discoverable tiers only (header); the row-level policy is what admits
+     * a row, this filter cannot widen it.
+     */
     talent_pool: {
       label: 'Talent Pool',
       type: 'grid',
       data,
       columns,
+      filter: [{ field: 'profile_visibility', operator: 'in', value: ['public', 'limited'] }],
       userFilters: {
         element: 'dropdown',
         fields: [
@@ -45,7 +60,8 @@ export const CandidateViews = defineView({
     },
 
     /**
-     * Card deck: photo as cover, name as title. The gallery config has no
+     * Card deck: photo as cover, name as title — the showcase surface, so it
+     * lists `public` profiles only (header). The gallery config has no
      * subtitle key — the first `visibleFields` entry (`current_title`) is the
      * line under the title.
      */
@@ -54,6 +70,7 @@ export const CandidateViews = defineView({
       type: 'gallery',
       data,
       columns: ['full_name', 'current_title', 'city', 'seeking_status'],
+      filter: [{ field: 'profile_visibility', operator: 'equals', value: 'public' }],
       gallery: {
         coverField: 'avatar',
         titleField: 'full_name',

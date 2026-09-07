@@ -30,6 +30,33 @@ import { definePermissionSet } from '@objectstack/spec/security';
  * is reserved, so a resolver may not supply it. The resolver module carries
  * the full account.
  *
+ * ## The candidate pool — two policies that OR-compose (#13)
+ *
+ * `ats_candidate` is the one object an employer reads across the platform,
+ * and it is consent-gated (maintainer ruling, DESIGN.md §03): a candidate who
+ * set `profile_visibility` to `public` or `limited` is discoverable by every
+ * employer; a `hidden` one is reachable ONLY by an employer they applied to.
+ * Each employer set therefore carries two SELECT policies on the object:
+ *
+ *     record.profile_visibility in ['public', 'limited']        the pool
+ *     record.id in current_user.applicant_candidate_ids         the applicants
+ *
+ * Policies on one object within one set OR-compose — measured in #13 on both
+ * drivers: two disjoint literal policies admitted the union (32 = 19 public +
+ * 13 hidden), where an intersection would have admitted zero. They are two
+ * policies rather than one `||` on purpose: if the applicant set cannot be
+ * resolved for a request, only THAT policy drops out and the employer keeps
+ * the pool, whereas a single unresolvable `||` predicate would deny all rows.
+ *
+ * `applicant_candidate_ids` is the second key the app-owned resolver
+ * publishes: the distinct `ats_application.candidate` ids whose `employer_org`
+ * is in the caller's set, pre-resolved per request. A carrier on the candidate
+ * row was measured and rejected — see rls-membership-resolver.ts.
+ *
+ * `public` and `limited` are NOT distinguished here, deliberately: field-level
+ * security is static per permission set, so `limited` cannot mean "fewer
+ * fields for this row". The two differ only in presentation (candidate.view.ts).
+ *
  * ## Why the grants carry `readScope: 'org'`
  *
  * On a `private` OWD object an `allowRead` grant without a scope means
@@ -38,6 +65,11 @@ import { definePermissionSet } from '@objectstack/spec/security';
  * widens the OWNER match to org-wide, and the policies below then narrow it
  * back to the caller's employer. Composition order is the point: OWD sets the
  * baseline, the scope widens it, RLS is the boundary that actually holds.
+ * Concretely, `readScope: 'org'` makes plugin-sharing contribute NO owner
+ * filter at all (`buildReadFilter`: `if (readScope === 'org') return null`) —
+ * it does not scope by organization, it hands the boundary to Layer 0 and RLS.
+ * On a `tenancy: { enabled: false }` object with no policy that is every row,
+ * which is how every employer read all 80 candidates before #13.
  * (`own` and `org` are the two open-source scopes; the hierarchy-relative ones
  * need the paid security plugin and fail closed to `own` without it.)
  *
@@ -139,6 +171,12 @@ export const EmployerAdminSet = definePermissionSet({
     { name: 'employer_admin_offers',      object: 'ats_offer',           operation: 'all',
       using: 'record.employer_org in current_user.employer_org_ids',
       check: 'record.employer_org in current_user.employer_org_ids' },
+    // The consent-gated candidate pool (header, DESIGN.md §03): the union of
+    // the discoverable tiers and this employer's own applicants.
+    { name: 'employer_admin_candidate_pool',       object: 'ats_candidate', operation: 'select',
+      using: "record.profile_visibility in ['public', 'limited']" },
+    { name: 'employer_admin_candidate_applicants', object: 'ats_candidate', operation: 'select',
+      using: 'record.id in current_user.applicant_candidate_ids' },
   ],
 });
 
@@ -187,6 +225,11 @@ export const EmployerRecruiterSet = definePermissionSet({
     { name: 'recruiter_offers',       object: 'ats_offer',           operation: 'all',
       using: 'record.employer_org in current_user.employer_org_ids',
       check: 'record.employer_org in current_user.employer_org_ids' },
+    // Same pool as the administrator; the field seals above are what differ.
+    { name: 'recruiter_candidate_pool',       object: 'ats_candidate', operation: 'select',
+      using: "record.profile_visibility in ['public', 'limited']" },
+    { name: 'recruiter_candidate_applicants', object: 'ats_candidate', operation: 'select',
+      using: 'record.id in current_user.applicant_candidate_ids' },
   ],
 });
 
