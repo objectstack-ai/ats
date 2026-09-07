@@ -26,7 +26,18 @@ import type { Dashboard } from '@objectstack/spec/ui';
  *   - the seed. Nine `accepted` offers, one per hired application (#53/#64) —
  *     before them the tile would have been an empty average over zero rows.
  * `AVG` ignores NULLs, so the denominator is the hired applications that
- * actually reached an offer, not every hired row. The stage filter is a
+ * actually reached an offer, not every hired row.
+ *
+ * ⚠️ On the DEMO SEED this tile's number is not the history it looks like.
+ * `created_at` is the platform's own stamp, so every seeded offer is created
+ * at boot, and `days_to_offer` therefore equals the application's AGE for all
+ * 23 stamped rows — measured against `appliedDaysAgo` in the seed skeleton,
+ * exact match on all nine hired. Quillstone's 30 and Harborline's 58 are
+ * "filed 30 / 58 days ago", not "took 30 / 58 days to decide". The metric
+ * itself is right; it is the seed that has no real elapsed time in it (#65).
+ * Nothing here can fix that — a seed cannot set `created_at` — so the tile is
+ * honest about what it computes and this note is honest about what the demo
+ * feeds it. The stage filter is a
  * WIDGET filter (the query's WHERE), never a measure-scoped one: the memory
  * driver answers `501 NOT_IMPLEMENTED` to a conditional aggregate.
  *
