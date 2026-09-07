@@ -187,23 +187,37 @@ export const JobStampHook = defineHook({
  *        - `owner_id` — plugin-security's boot-time ownership claim. This is
  *          the one that matters most: it is a `multi: true` predicate write
  *          over every unowned row on EVERY boot.
- *        - `days_to_offer` — the derived metric `ats_offer_time_to_offer`
- *          stamps once. It restates a duration that ends at the OFFER's own
- *          `created_at`, which the offer row already carries, and a recruiter
- *          who extends an offer also moves the application to `stage: offer` —
- *          that write is the activity. Counting the metric write as activity
- *          would re-date the 23 offer-bearing demo applications to boot time on
- *          boot 1 and not on boot 2 (the offer is inserted once, upserted
- *          after): a demo dataset that changes shape per boot.
+ *        - `days_to_offer` and `interview_count` — the object's two DERIVED
+ *          columns, and neither is authorable: `days_to_offer` is
+ *          `readonly: true`, stamped once by `ats_offer_time_to_offer`;
+ *          `interview_count` is a `Field.summary` roll-up the engine recomputes
+ *          when an interview row lands. Each restates a fact whose own
+ *          timestamp lives on the OTHER row — the offer's `created_at`, the
+ *          interview's `scheduled_at` — and the recruiter's act that produced
+ *          it (moving the application to `stage: offer` / `stage: interview`)
+ *          is a payload that DOES name a field of the application and does
+ *          stamp. Counting the derived writes as activity re-dates the 23
+ *          offer-bearing and 28 interview-bearing demo applications to boot
+ *          time on the first boot and not on the next (both parent rows are
+ *          inserted once and upserted after) — a demo dataset that changes
+ *          shape per boot.
  *        - `id`, `created_at`, `created_by`, `updated_at`, `updated_by` — the
  *          engine's own columns. `updated_at` is the audit stamp of the last
  *          write; "someone acted on this application" is a different fact, and
  *          this field is the one that carries it.
  *
+ * Measured on a fresh seeded sqlite boot (cli 17.3.0): the update path receives
+ * exactly three payload shapes, 200 x `{owner_id, updated_at}` (the claim),
+ * 28 x `{id, interview_count, updated_at}` and 23 x `{id, days_to_offer,
+ * updated_at}` — every one of them a write the platform makes about the row,
+ * and not one of them a person acting on it.
+ *
  * A deny-list rather than an allow-list, deliberately. Activity is "a write to
- * this row" minus a short, nameable set of platform writes, so a field added to
- * the object tomorrow counts without anyone remembering to list it; the failure
- * direction is one stamp too many, never a timeline frozen at boot again.
+ * this row" minus a short, nameable set of platform writes — the engine's own
+ * columns plus this object's non-authorable derived ones — so a field added to
+ * the object tomorrow counts as activity without anyone remembering to list it;
+ * the failure direction is one stamp too many, never a timeline frozen at boot
+ * again.
  */
 export const ApplicationStampHook = defineHook({
   name: 'ats_application_stamp',
@@ -253,7 +267,7 @@ export const ApplicationStampHook = defineHook({
     // anything other than the platform's own bookkeeping columns or the
     // derived metric a sibling hook stamps.
     if (input.last_activity_at == null) {
-      const bookkeeping = ['id', 'owner_id', 'days_to_offer', 'created_at', 'created_by', 'updated_at', 'updated_by'];
+      const bookkeeping = ['id', 'owner_id', 'created_at', 'created_by', 'updated_at', 'updated_by', 'days_to_offer', 'interview_count'];
       const activity = Object.keys(input).some((k) => input[k] !== undefined && !bookkeeping.includes(k));
       if (inserting || activity) input.last_activity_at = new Date().toISOString();
     }
