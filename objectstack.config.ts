@@ -1,5 +1,6 @@
 import { defineStack } from '@objectstack/spec';
 import * as objects from './src/objects/index.js';
+import * as views from './src/views/index.js';
 import { allHooks } from './src/hooks/index.js';
 import {
   PlatformAdminPosition,
@@ -41,6 +42,9 @@ export default defineStack({
   requires: ['ui'],
 
   objects: Object.values(objects),
+
+  // UI — the views each app navigates to (card 07 employer, card 08 platform/seeker).
+  views: Object.values(views),
 
   // Logic — the stamps that make row-level scoping resolvable (see stamp.hook.ts).
   hooks: allHooks,
