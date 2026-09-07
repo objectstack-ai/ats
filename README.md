@@ -86,10 +86,11 @@ permission set (DESIGN.md §04).
 > personas are unaffected. Cause and evidence: [#39](https://github.com/objectstack-ai/ats/issues/39)
 > (upstream [objectstack#16589](https://github.com/objectstack-ai/objectstack/issues/16589)).
 >
-> Two other known gaps, both with the measurement in the issue:
+> One other known gap, with the measurement in the issue:
 > [#45](https://github.com/objectstack-ai/ats/issues/45) — an employer administrator cannot yet
-> *create* a job (blocked upstream); [#13](https://github.com/objectstack-ai/ats/issues/13) —
-> employers can currently read every candidate profile, including ones marked hidden.
+> *create* a job (blocked upstream on
+> [objectstack#16607](https://github.com/objectstack-ai/objectstack/issues/16607) and
+> [#16608](https://github.com/objectstack-ai/objectstack/issues/16608)).
 
 Every metadata change is gated:
 
