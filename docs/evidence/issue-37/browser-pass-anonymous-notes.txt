@@ -1,0 +1,7 @@
+# anonymous half (second submission, the one the platform admin converts in the shots)
+anonymous context cookies: 0
+public form: job control value = "IGiL449dFMGS0APa"
+filled full_name=true email=true phone=true cover_letter=true
+after submit, page contains "Application received": true
+browser-submitted inquiry rows (platform admin count): 2 {"id":"7URx-S1ALuCdSI4A","job":"IGiL449dFMGS0APa","status":"converted","employer_org":"org_ats_quillstone"}
+anonymous half done (ANON_ONLY)

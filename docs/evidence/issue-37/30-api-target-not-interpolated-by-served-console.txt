@@ -1,0 +1,19 @@
+# First cut of the triage actions: type: 'api' + PATCH /api/v1/data/ats_inquiry/${ctx.recordId} + bodyExtra { status } — clicked in the served console (cli 17.3.0), sqlite driver, 2026-09-07 14:25 UTC
+
+## browser notes
+target inquiry (API, platform admin): {"id":"7URx-S1ALuCdSI4A","display_name":"Browser Applicant → Embedded Systems Engineer","status":"new","employer_org":"org_ats_quillstone"}
+queue url: http://localhost:4313/_console/apps/ats/ats_inquiry/view/inbox
+queue grid rows rendered: 15; page mentions "Inquiries · New": true
+record url: http://localhost:4313/_console/apps/ats/ats_inquiry/record/7URx-S1ALuCdSI4A
+Convert to Application button present: 1
+confirm dialog present: 0; confirm button candidates: 1
+toast/body mentions "converted": true
+after clicking Convert (API): status=new candidate=null application=null converted_at=null
+
+## server log (the request the console sent)
+7284:[REST] Unhandled error: UnknownFilterTokenError: Unresolvable filter placeholder "{ctx.recordId}". Resolvable placeholders are the context tokens ({current_user_id}, {current_org_id}) and the date macros ({today}, {current_quarter_start}, {30_days_ago}, …). Sending it to the data engine verbatim would compare it as a literal string and match nothing, which is indistinguishable from an empty result.
+7285-    at walk (file:///home/user/ats-issue-37/node_modules/.pnpm/@objectstack+core@17.3.0/node_modules/@objectstack/core/dist/index.js:6200:41)
+7286-    at walk (file:///home/user/ats-issue-37/node_modules/.pnpm/@objectstack+core@17.3.0/node_modules/@objectstack/core/dist/index.js:6209:59)
+7287-    at resolveFilterTokens (file:///home/user/ats-issue-37/node_modules/.pnpm/@objectstack+core@17.3.0/node_modules/@objectstack/core/dist/index.js:6214:10)
+
+## objectui main (for comparison) — packages/core/src/actions/ActionRunner.ts interpolateTarget: substitutes ${param.X} / ${ctx.X}, ctx.recordId = context.record?.id ?? context.recordId; the served console bundle evidently predates it.

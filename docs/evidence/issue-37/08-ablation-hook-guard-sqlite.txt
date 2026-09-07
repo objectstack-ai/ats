@@ -1,0 +1,13 @@
+=== Ablation B: stamp hook's published-job guard removed (driver sqlite) ===
+--- HEAD: 533c22c; src/hooks/inquiry.hook.ts at HEAD blob 42cf3eab82
+[BASELINE (shipped)] 2026-09-07T14:21:17.879Z anonymous POST to DRAFT job (draft) → HTTP 400 {"code":"VALIDATION_FAILED","error":"This job is not accepting applications."}
+[BASELINE (shipped)] 2026-09-07T14:21:17.879Z control: anonymous POST to PUBLISHED job → HTTP 201; inquiries now pointing at the draft job (platform admin count): 0
+--- mutation on disk: ABLATION-B markers=1 · original guard lines left=0
+restarted (count 1 → 2) after ~18s
+[MUTATED: no published guard] 2026-09-07T14:21:33.968Z anonymous POST to DRAFT job (draft) → HTTP 201 {"id":"Pa9Pb1SpDyCz_9Hl","employer_org":"org_ats_quillstone","status":"new"}
+[MUTATED: no published guard] 2026-09-07T14:21:33.968Z control: anonymous POST to PUBLISHED job → HTTP 201; inquiries now pointing at the draft job (platform admin count): 1
+--- restore src/hooks/inquiry.hook.ts: worktree 42cf3eab820cea89b56257750a120bdb93613381 HEAD 42cf3eab820cea89b56257750a120bdb93613381 MATCH
+--- git diff HEAD --stat: [] (empty = restored)
+restarted (count 2 → 3) after ~15s
+[RESTORED] 2026-09-07T14:21:46.936Z anonymous POST to DRAFT job (draft) → HTTP 400 {"code":"VALIDATION_FAILED","error":"This job is not accepting applications."}
+[RESTORED] 2026-09-07T14:21:46.936Z control: anonymous POST to PUBLISHED job → HTTP 201; inquiries now pointing at the draft job (platform admin count): 1

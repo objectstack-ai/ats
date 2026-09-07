@@ -1,0 +1,142 @@
+# Anonymous public application form + conversion — driver: memory, base: http://localhost:4313, 2026-09-07T14:07:35.443Z
+# Anonymous requests carry NO cookie and NO token.
+
+## 1. anonymous GET /api/v1/forms/apply — the whitelisted schema
+GET /api/v1/forms/apply → HTTP 200 {"slug":"apply","object":"ats_inquiry","sectionFields":[["job[publicPicker]","full_name","email","phone","cover_letter","resume"]],"objectSchemaFields":["job","full_name","email","phone","cover_letter","resume"],"sharing":{"enabled":true,"publicLink":"/forms/apply","allowAnonymous":true},"submitBehavior":{"kind":"thank-you","title":"Application received","message":"Thank you — the employer will review your application and be in touch."}}
+
+## 2. anonymous GET /api/v1/forms/apply/lookup/job?q=engineer — the public picker search (upstream objectstack#16581)
+lookup → HTTP 400 {"error":"Malformed $filter: [{\"field\":\"status\",\"operator\":\"equals\",\"value\":\"published\"},{\"field\":\"title\",\"operator\":\"contains\",\"value\":\"engineer\"}] is not a recognised filter shape. A filter array is a comparison [field, operator, value], a logical node [\"and\"|\"or\", ...c
+
+## 3. anonymous reads — every one must be 401
+GET /api/v1/data/ats_inquiry → HTTP 401 {"code":"UNAUTHENTICATED"}
+GET /api/v1/data/ats_candidate → HTTP 401 {"code":"UNAUTHENTICATED"}
+GET /api/v1/data/ats_application → HTTP 401 {"code":"UNAUTHENTICATED"}
+GET /api/v1/data/ats_job → HTTP 401 {"code":"UNAUTHENTICATED"}
+GET /api/v1/meta/view → HTTP 401 {"code":"UNAUTHENTICATED"}
+GET /api/v1/data/ats_inquiry?status=new → HTTP 401 {"code":"UNAUTHENTICATED"}
+
+## 4. job ids (read as platform admin) — the public form takes the job by prefill
+{"Q_published_1":{"id":"ats_job-1788790025719-1","status":"published","employer_org":"org_ats_quillstone"},"Q_published_2":{"id":"ats_job-1788790025719-2","status":"published"},"Q_draft":{"id":"ats_job-1788790025719-5","status":"draft"},"Q_pending":{"id":"ats_job-1788790025719-4","status":"pending_review"},"H_published":{"id":"ats_job-1788790025719-8","status":"published","employer_org":"org_ats_harborline"}}
+
+## 5. seeded inquiries as platform admin: 8
+  new       org_ats_quillstone     applicant01@mail.example     Mara Ellsworth → Robotics Software Engineer
+  new       org_ats_quillstone     candidate15@mail.example     Marcus Feld → Field Service Technician
+  new       org_ats_harborline     applicant02@mail.example     Devon Ashcroft → CNC Machinist
+  new       org_ats_harborline     candidate22@mail.example     Karin Lindgren → Quality Inspector
+  new       org_ats_cedarbrook     applicant03@mail.example     Priya Venkataraman → Registered Nurse, Night Shift
+  new       org_ats_brightmarket   applicant04@mail.example     Tobias Renner → Store Manager
+  new       org_ats_summitridge    applicant05@mail.example     Adaeze Okonkwo → Credit Risk Analyst
+  new       org_ats_swiftroute     candidate60@mail.example     Hana Kimura → Warehouse Team Lead
+
+## 6. anonymous POST /api/v1/forms/apply/submit — a valid application to a published Quillstone job (e-mail deliberately mixed-case with trailing space)
+POST submit → HTTP 201 {"id":"ats_inquiry-1788790056132-9","display_name":"Nadia Ferrante → Robotics Software Engineer","status":"new","job":"ats_job-1788790025719-1","employer_org":"org_ats_quillstone","email":"nadia.ferrante@mail.example","full_name":"Nadia Ferrante","submitted_at":"2026-09-07T14:07:36.131Z"}
+created inquiry id: ats_inquiry-1788790056132-9
+
+## 7. count as platform admin after one anonymous submit — exactly one new row
+ats_inquiry total: 9 (was 8)
+rows with the normalised e-mail: 1
+
+## 8. anonymous POST smuggling non-whitelisted keys (status, employer_org, candidate, application, owner_id, submitted_at) — must land as new / Quillstone / unlinked
+POST submit (smuggled) → HTTP 201 {"id":"ats_inquiry-1788790056291-10","display_name":"Smuggler Test → Robotics Software Engineer","status":"new","job":"ats_job-1788790025719-1","employer_org":"org_ats_quillstone","email":"smuggle@mail.example","full_name":"Smuggler Test","submitted_at":"2026-09-07T14:07:36.290Z"}
+
+## 9. anonymous POST against a DRAFT job — refused by the stamp hook
+POST submit (draft job) → HTTP 400 {"error":"This job is not accepting applications.","code":"VALIDATION_FAILED"}
+
+## 10. anonymous POST against a PENDING_REVIEW job — refused
+POST submit (pending job) → HTTP 400 {"error":"This job is not accepting applications.","code":"VALIDATION_FAILED"}
+
+## 11. anonymous POST with a job id that does not exist — refused
+POST submit (bogus job) → HTTP 400 {"error":"This job is not accepting applications.","code":"VALIDATION_FAILED"}
+
+## 12. anonymous POST without a job / without an e-mail / empty body — the required contract
+POST submit (no job) → HTTP 400 {"error":"Job is required","code":"VALIDATION_FAILED"}
+POST submit (no email) → HTTP 400 {"error":"Email is required","code":"VALIDATION_FAILED"}
+POST submit (empty) → HTTP 400 {"error":"Job is required; Full Name is required; Email is required","code":"VALIDATION_FAILED"}
+
+## 13. anonymous read-back of the row just written — beyond the submit response, nothing
+GET /api/v1/data/ats_inquiry/ats_inquiry-1788790056132-9 → HTTP 401 {"code":"UNAUTHENTICATED"}
+GET /api/v1/data/ats_inquiry?email=nadia.ferrante%40mail.example → HTTP 401 {"code":"UNAUTHENTICATED"}
+PATCH /api/v1/data/ats_inquiry/ats_inquiry-1788790056132-9 → HTTP 401 {"code":"UNAUTHENTICATED"}
+DELETE /api/v1/data/ats_inquiry/ats_inquiry-1788790056132-9 → HTTP 401 {"code":"UNAUTHENTICATED"}
+GET /api/v1/data/ats_job/ats_job-1788790025719-1 → HTTP 401 {"code":"UNAUTHENTICATED"}
+POST /api/v1/actions/ats_inquiry/ats_convert_inquiry/ats_inquiry-1788790056132-9 → HTTP 401 {"code":{"code":"UNAUTHENTICATED","message":"Authentication is required to access this endpoint.","httpStatus":401}}
+
+## 14. anonymous GET of the console form page with the prefill link
+GET /_console/f/apply?prefill_job=… → HTTP 200 SPA shell (HTML)
+
+## 15. regression counts BEFORE any conversion (employer/member/job/application/offer/candidate/inquiry)
+Quillstone admin: {"employer":1,"employer_member":3,"job":5,"application":27,"offer":2,"candidate":70,"inquiry":4}
+Harborline admin: {"employer":1,"employer_member":3,"job":5,"application":31,"offer":2,"candidate":69,"inquiry":2}
+platform ops sees inquiries: 10 (HTTP 200)
+
+## 16. who can see the new inquiry: Quillstone (owns the job) yes, Harborline no
+Quillstone admin GET inquiry → HTTP 200 {"id":"ats_inquiry-1788790056132-9","display_name":"Nadia Ferrante → Robotics Software Engineer","status":"new","job":"ats_job-1788790025719-1","employer_org":"org_ats_quillstone","email":"nadia.ferrante@mail.example","full_name":"Nadia Ferrante","submitted_at":"2026-09-07T14:07:36.131Z"}
+Harborline admin GET inquiry → HTTP 404 {"error":"Record ats_inquiry-1788790056132-9 not found in ats_inquiry","code":"RECORD_NOT_FOUND"}
+
+## 17. the action route on cli 17.3.0 (declarative operation:update is declared but not executed by this runtime)
+Quillstone admin POST /actions/…/ats_convert_inquiry → HTTP 400 {"success":false,"error":{"code":"VALIDATION_ERROR","message":"Action 'ats_convert_inquiry' on 'ats_inquiry' is `type: 'api'` — it dispatches on `target`, not through the action registry. Call `/api/v1/data/ats_inquiry/${ctx.recordId}` directly (PATCH).","httpStatus":400}}
+
+## 18. Quillstone admin converts: PATCH status → converted (the hook files candidate + application in the same write)
+PATCH inquiry → HTTP 200 {"id":"ats_inquiry-1788790056132-9","display_name":"Nadia Ferrante → Robotics Software Engineer","status":"converted","job":"ats_job-1788790025719-1","employer_org":"org_ats_quillstone","email":"nadia.ferrante@mail.example","full_name":"Nadia Ferrante","candidate":"ats_candidate-1788790057991-81","application":"ats_application-1788790057995-201","converted_at":"2026-09-07T14:07:37.996Z","submitted_at":"2026-09-07T14:07:36.131Z"}
+inquiry after: status=converted candidate=ats_candidate-1788790057991-81 application=ats_application-1788790057995-201 converted_at=2026-09-07T14:07:37.996Z
+
+## 19. the converting employer can READ the new candidate (#13 applicant path) and sees the application in its pipeline
+Quillstone admin GET candidate → HTTP 200 {"id":"ats_candidate-1788790057991-81","full_name":"Nadia Ferrante","email":"nadia.ferrante@mail.example","phone":"+1 202 555 0199","profile_visibility":"hidden","seeking_status":"actively_looking"}
+Quillstone admin GET application → HTTP 200 {"id":"ats_application-1788790057995-201","display_name":"Nadia Ferrante → Robotics Software Engineer","job":"ats_job-1788790025719-1","candidate":"ats_candidate-1788790057991-81","employer_org":"org_ats_quillstone","stage":"applied","source":"direct","applied_at":"2026-09-07T14:07:36.131Z"}
+applied_at equals the inquiry's submitted_at: true (2026-09-07T14:07:36.131Z vs 2026-09-07T14:07:36.131Z)
+Quillstone pipeline rows for that candidate: 1
+Quillstone applications in stage=applied (inbox_new): 11
+
+## 20. regression counts AFTER conversion 1 — Quillstone gains one candidate and one application; Harborline gains nothing
+Quillstone admin: {"employer":1,"employer_member":3,"job":5,"application":28,"offer":2,"candidate":71,"inquiry":4}
+Harborline admin: {"employer":1,"employer_member":3,"job":5,"application":31,"offer":2,"candidate":69,"inquiry":2}
+Harborline admin GET that candidate → HTTP 404 {"error":"Record ats_candidate-1788790057991-81 not found in ats_candidate","code":"RECORD_NOT_FOUND"}
+Harborline admin GET that application → HTTP 404 {"error":"Record ats_application-1788790057995-201 not found in ats_application","code":"RECORD_NOT_FOUND"}
+
+## 21. de-duplication: a SECOND anonymous inquiry from the same e-mail (different case) to another Quillstone job attaches to the SAME candidate
+POST submit #2 → HTTP 201 {"id":"ats_inquiry-1788790059330-11","display_name":"Nadia Ferrante → Embedded Systems Engineer","status":"new","job":"ats_job-1788790025719-2","employer_org":"org_ats_quillstone","email":"nadia.ferrante@mail.example","full_name":"Nadia Ferrante","submitted_at":"2026-09-07T14:07:39.330Z"}
+PATCH convert #2 → HTTP 200 {"id":"ats_inquiry-1788790059330-11","display_name":"Nadia Ferrante → Embedded Systems Engineer","status":"converted","job":"ats_job-1788790025719-2","employer_org":"org_ats_quillstone","email":"nadia.ferrante@mail.example","full_name":"Nadia Ferrante","candidate":"ats_candidate-1788790057991-81","application":"ats_application-1788790059396-202","converted_at":"2026-09-07T14:07:39.397Z","submitted_at":"2026-09-07T14:07:39.330Z"}
+inquiry #2 → candidate=ats_candidate-1788790057991-81 (same as #1: true) application=ats_application-1788790059396-202 (new: true)
+Quillstone admin: {"employer":1,"employer_member":3,"job":5,"application":29,"offer":2,"candidate":71,"inquiry":5}
+
+## 22. de-duplication: a THIRD inquiry, same e-mail, same job as #1 — attaches to the EXISTING application (unique (job, candidate))
+POST submit #3 → HTTP 201 {"id":"ats_inquiry-1788790059880-12","display_name":"Nadia Ferrante → Robotics Software Engineer","status":"new","job":"ats_job-1788790025719-1","employer_org":"org_ats_quillstone","email":"nadia.ferrante@mail.example","full_name":"Nadia Ferrante","submitted_at":"2026-09-07T14:07:39.879Z"}
+PATCH convert #3 → HTTP 200 {"id":"ats_inquiry-1788790059880-12","display_name":"Nadia Ferrante → Robotics Software Engineer","status":"converted","job":"ats_job-1788790025719-1","employer_org":"org_ats_quillstone","email":"nadia.ferrante@mail.example","full_name":"Nadia Ferrante","candidate":"ats_candidate-1788790057991-81","application":"ats_application-1788790057995-201","converted_at":"2026-09-07T14:07:39.941Z","submitted_at":"2026-09-07T14:07:39.879Z"}
+inquiry #3 → candidate=ats_candidate-1788790057991-81 (same: true) application=ats_application-1788790057995-201 (same as #1: true)
+Quillstone admin: {"employer":1,"employer_member":3,"job":5,"application":29,"offer":2,"candidate":71,"inquiry":6}
+candidates created for three inquiries from one e-mail: 1; applications: 2
+
+## 23. a seeded inquiry from an EXISTING seeded candidate (candidate22@mail.example → Quality Inspector, Harborline): conversion attaches to the seeded row
+seeded candidate id for candidate22@mail.example: ats_candidate-1788790025600-22 (Karin Lindgren, limited)
+Harborline admin PATCH convert → HTTP 200 {"id":"ats_inquiry-1788790026235-4","display_name":"Karin Lindgren → Quality Inspector","status":"converted","job":"ats_job-1788790025719-8","employer_org":"org_ats_harborline","email":"candidate22@mail.example","full_name":"Karin Lindgren","candidate":"ats_candidate-1788790025600-22","application":"ats_application-1788790060564-203","converted_at":"2026-09-07T14:07:40.565Z","submitted_at":"2026-09-04T00:00:00.000Z","owner_id":"usr_ats_0_owner"}
+→ candidate=ats_candidate-1788790025600-22 equals seeded candidate: true; application=ats_application-1788790060564-203
+Harborline admin: {"employer":1,"employer_member":3,"job":5,"application":32,"offer":2,"candidate":69,"inquiry":2}
+
+## 24. recruiter (talent1@quillstone.example): reads the queue with e-mail and phone sealed, and can still convert
+recruiter sees 6 inquiries; row keys include email? false phone? false; keys: id,display_name,job,employer,employer_org,full_name,cover_letter,status,submitted_at,created_at,updated_at,owner_id
+recruiter PATCH convert → HTTP 200 {"id":"ats_inquiry-1788790026235-2","display_name":"Marcus Feld → Field Service Technician","status":"converted","job":"ats_job-1788790025719-3","employer_org":"org_ats_quillstone","full_name":"Marcus Feld","candidate":"ats_candidate-1788790025600-15","application":"ats_application-1788790061527-204","converted_at":"2026-09-07T14:07:41.529Z","submitted_at":"2026-09-05T00:00:00.000Z","owner_id":"usr_ats_0_owner"}
+→ candidate=ats_candidate-1788790025600-15 equals seeded candidate15 (ats_candidate-1788790025600-15): true; application=ats_application-1788790061527-204
+recruiter GET candidate (contact sealed) → HTTP 200 {"id":"ats_candidate-1788790025600-15","full_name":"Marcus Feld","profile_visibility":"public"}
+recruiter's candidate row carries email? false phone? false
+
+## 25. cross-employer triage is refused: Harborline admin cannot convert a Quillstone inquiry
+Harborline admin PATCH Quillstone inquiry → HTTP 403 {"error":"You do not have access to this record. Contact the person who owns it, or your administrator, if you need access.","code":"PERMISSION_DENIED"}
+that inquiry is still: status=new candidate=null
+
+## 26. a job seeker has no grant on inquiries
+seeker GET /ats_inquiry → HTTP 403 You do not have permission to perform this action. Contact your administrator if you need access. rows=0
+
+## 27. state machine: converted is terminal; rejected → converted needs a reopen first; the hook does nothing on an illegal transition
+converted → rejected → HTTP 400 {"error":"Invalid inquiry status transition.","code":"VALIDATION_FAILED"}
+new → rejected → HTTP 200 {"id":"ats_inquiry-1788790056291-10","display_name":"Smuggler Test → Robotics Software Engineer","status":"rejected","job":"ats_job-1788790025719-1","employer_org":"org_ats_quillstone","email":"smuggle@mail.example","full_name":"Smuggler Test","submitted_at":"2026-09-07T14:07:36.290Z"}
+rejected → converted → HTTP 400 {"error":"Only a new inquiry can be converted; this one is rejected.","code":"VALIDATION_FAILED"}
+rejected → new → HTTP 200 {"id":"ats_inquiry-1788790056291-10","display_name":"Smuggler Test → Robotics Software Engineer","status":"new","job":"ats_job-1788790025719-1","employer_org":"org_ats_quillstone","email":"smuggle@mail.example","full_name":"Smuggler Test","submitted_at":"2026-09-07T14:07:36.290Z"}
+new → spam → HTTP 200 {"id":"ats_inquiry-1788790056291-10","display_name":"Smuggler Test → Robotics Software Engineer","status":"spam","job":"ats_job-1788790025719-1","employer_org":"org_ats_quillstone","email":"smuggle@mail.example","full_name":"Smuggler Test","submitted_at":"2026-09-07T14:07:36.290Z"}
+Quillstone admin (the illegal attempts above created no candidate/application rows): {"employer":1,"employer_member":3,"job":5,"application":30,"offer":2,"candidate":71,"inquiry":6}
+
+## 28. final counts
+Quillstone admin: {"employer":1,"employer_member":3,"job":5,"application":30,"offer":2,"candidate":71,"inquiry":6}
+Harborline admin: {"employer":1,"employer_member":3,"job":5,"application":32,"offer":2,"candidate":69,"inquiry":2}
+platform ops: inquiries 12 by status {"new":6,"converted":5,"spam":1}
+
+SUMMARY memory: before Q={"employer":1,"employer_member":3,"job":5,"application":27,"offer":2,"candidate":70,"inquiry":4} H={"employer":1,"employer_member":3,"job":5,"application":31,"offer":2,"candidate":69,"inquiry":2} | after Q={"employer":1,"employer_member":3,"job":5,"application":30,"offer":2,"candidate":71,"inquiry":6} H={"employer":1,"employer_member":3,"job":5,"application":32,"offer":2,"candidate":69,"inquiry":2}

@@ -1,0 +1,42 @@
+# Triage actions through POST /api/v1/actions/ats_inquiry/ACTION/ID — driver sqlite, 2026-09-07T14:28:57.260Z
+
+## 1. new inquiries available: Quillstone 9, Harborline 2 (platform admin read)
+targets: qA=6efzP0auBKVdiMRH (Control Probe BASELINE (shipped) → Robotics Software Engineer) qB=7URx-S1ALuCdSI4A qC=FL4tNU14GLiu25mi hA=36Xac4GwKMsC7oBt (Karin Lindgren → Quality Inspector)
+
+## 2. anonymous → 401
+HTTP 401 {"success":false,"error":{"code":"UNAUTHENTICATED","message":"Authentication is required to access this endpoint.","httpStatus":401}}
+
+## 3. job seeker (no grant on inquiries) → refused
+HTTP 403 {"success":false,"error":{"code":"PERMISSION_DENIED","message":"You cannot triage this inquiry.","httpStatus":403}}
+row: status=new candidate=null application=null
+
+## 4. Harborline admin on a QUILLSTONE inquiry → refused (recordLoadDenied: the caller-scope load did not deliver the row)
+HTTP 403 {"success":false,"error":{"code":"PERMISSION_DENIED","message":"You cannot triage this inquiry.","httpStatus":403}}
+row: status=new candidate=null application=null
+
+## 5. Quillstone admin on its own inquiry → converted
+HTTP 200 {"success":true,"data":{"id":"6efzP0auBKVdiMRH","status":"converted"}}
+row: status=converted candidate=IuK26Ae3gkYF64H4 application=DJMVpdzbd8PxoW4G
+
+## 6. Quillstone recruiter on its own inquiry → converted
+HTTP 200 {"success":true,"data":{"id":"7URx-S1ALuCdSI4A","status":"converted"}}
+row: status=converted candidate=SvhCK3FmIf4SyhCM application=ub-gh2NhbQ_sBQ4v
+
+## 7. platform ops on a Harborline inquiry → converted
+HTTP 200 {"success":true,"data":{"id":"36Xac4GwKMsC7oBt","status":"converted"}}
+row: status=converted candidate=XTjHFrUWxrAspT3q application=TPZX2vdwyaUV31Id
+
+## 8. converting an already converted inquiry again → a same-state write: the hook returns early, nothing is created (the button is hidden on a converted row anyway)
+HTTP 200 {"success":true,"data":{"id":"6efzP0auBKVdiMRH","status":"converted"}}
+row: status=converted candidate=IuK26Ae3gkYF64H4 application=DJMVpdzbd8PxoW4G
+
+## 9. Reject verb, Quillstone admin → rejected
+HTTP 200 {"success":true,"data":{"id":"FL4tNU14GLiu25mi","status":"rejected"}}
+row: status=rejected candidate=null application=null
+
+## 10. no record id → refused by the body
+HTTP 400 {"success":false,"error":{"code":"VALIDATION_FAILED","message":"Open an inquiry to triage it.","httpStatus":400,"details":{"fields":[]}}}
+
+## 11. final: Quillstone / Harborline counts (candidate, application, inquiry)
+Quillstone admin {"ats_candidate":73,"ats_application":32,"ats_inquiry":13}
+Harborline admin {"ats_candidate":69,"ats_application":32,"ats_inquiry":2}

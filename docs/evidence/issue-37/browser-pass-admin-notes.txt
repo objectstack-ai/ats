@@ -1,0 +1,10 @@
+target inquiry (API, platform admin): {"id":"MDPUmuaX0ec-gEHJ","display_name":"Browser Applicant → Embedded Systems Engineer","status":"new","employer_org":"org_ats_quillstone"}
+queue url: http://localhost:4313/_console/apps/ats/ats_inquiry/view/inbox
+queue grid rows rendered: 12; page mentions "Inquiries · New": true
+record url: http://localhost:4313/_console/apps/ats/ats_inquiry/record/MDPUmuaX0ec-gEHJ
+Convert to Application button present: 1
+confirm dialog present: 0; confirm button candidates: 1
+toast/body mentions "converted": true
+after clicking Convert (API): status=converted candidate=SvhCK3FmIf4SyhCM application=ub-gh2NhbQ_sBQ4v converted_at=2026-09-07T14:30:26.782Z
+application (API): {"id":"ub-gh2NhbQ_sBQ4v","display_name":"Browser Applicant → Embedded Systems Engineer","stage":"applied","employer_org":"org_ats_quillstone","candidate":"SvhCK3FmIf4SyhCM"}
+application url: http://localhost:4313/_console/apps/ats/ats_application/record/ub-gh2NhbQ_sBQ4v?from=%5B%7B%22o%22%3A%22ats_inquiry%22%2C%22i%22%3A%22MDPUmuaX0ec-gEHJ%22%2C%22t%22%3A%22Browser+Applicant+%E2%86%92+Embedded+Systems+Engineer%22%7D%5D
