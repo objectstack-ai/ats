@@ -4,6 +4,7 @@ import { data } from './src/data/index.js';
 import * as views from './src/views/index.js';
 import { allHooks } from './src/hooks/index.js';
 import * as flows from './src/flows/index.js';
+import { AtsApp } from './src/apps/index.js';
 import {
   PlatformAdminPosition,
   PlatformOpsPosition,
@@ -61,6 +62,11 @@ export default defineStack({
 
   // Automation — the approval chains F1–F3 (DESIGN.md §05).
   flows: Object.values(flows),
+
+  // The one app: three audience groups (Platform · Hiring · Job Seeker), each
+  // gated by a capability the permission sets grant (DESIGN.md §04). An
+  // 'app' package may define at most one app (ADR-0019 D3).
+  apps: [AtsApp],
 
   // Security — capability containers plus the row- and field-level scopes.
   positions: [
