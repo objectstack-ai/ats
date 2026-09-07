@@ -23,6 +23,36 @@ pnpm install
 pnpm dev          # REST + Console on http://localhost:3000
 ```
 
+Open <http://localhost:3000/_console/> and sign in. The `dev` script boots with the demo seed
+(`src/data/`, English by default — `OS_SEED_LOCALE=zh pnpm dev` for the Chinese set) and declares the
+platform owner: it sets `OS_PLATFORM_OWNER_EMAIL=admin@objectos.ai`, which is what gives that
+account platform-admin standing once the seed's people exist (without it the runtime's first-account
+carve-out stays shut and the dev admin is an ordinary user who can administer nothing). On Windows
+`cmd`, set the variable in the shell before running `objectstack dev --ui`.
+
+### Demo logins
+
+**These are fictional demo accounts in a public repository. The passwords are documented here on
+purpose and are not secrets** — do not deploy the demo seed anywhere that matters. Each persona is
+served exactly the navigation group its position unlocks (DESIGN.md §04); the shared password is
+`demo1234`. They are defined in [`src/data/shared/personas.ts`](./src/data/shared/personas.ts).
+
+| Sign in as | Password | Who | Sees |
+|---|---|---|---|
+| `admin@objectos.ai` | `admin123` | Platform owner (`OS_PLATFORM_OWNER_EMAIL`) | Setup and the ATS app; holds no ATS position, so no ATS group — use the personas below for the product |
+| `admin@platform.example` | `demo1234` | Platform administrator | **Platform** group, all data |
+| `ops@platform.example` | `demo1234` | Platform operations | **Platform** group, review queues |
+| `admin@quillstone.example` | `demo1234` | Employer administrator, Quillstone | **Hiring** group |
+| `talent1@quillstone.example` | `demo1234` | Recruiter, Quillstone | **Hiring** group |
+| `admin@harborline.example` | `demo1234` | Employer administrator, Harborline | **Hiring** group |
+| `candidate01@mail.example` | `demo1234` | Job seeker | **Job Seeker** group |
+
+> Known gap: an employer persona currently sees the Hiring group with **empty lists**. Every
+> employer-side row-level policy fails closed because the platform never resolves
+> `current_user.accessible_org_ids` for RLS — tracked in
+> [#18](https://github.com/objectstack-ai/ats/issues/18) (upstream objectstack#16518). The
+> platform personas read everything through `viewAllRecords`, so they show the data today.
+
 Every metadata change is gated:
 
 ```bash

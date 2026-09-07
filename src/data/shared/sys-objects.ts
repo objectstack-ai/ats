@@ -18,9 +18,9 @@
  * Why the demo needs them at all: every employer-side row-level policy is
  * `employer_org IN (current_user.accessible_org_ids)`, and that set is derived
  * from `sys_member`. An employer without an organization and members shows
- * ZERO rows to its own staff (DESIGN.md §03). The users seeded here are
- * directory rows only — no credential is created, so nobody can sign in as
- * them until an operator sets a password from Setup.
+ * ZERO rows to its own staff (DESIGN.md §03). Most users seeded here are
+ * directory rows only; the handful listed in `personas.ts` also get a
+ * `sys_account` credential row so the demo can be signed into as them.
  */
 
 export const SysOrganization = {
@@ -38,7 +38,32 @@ export const SysUser = {
     id: {},
     name: {},
     email: {},
+    /** Written `true` only on the signable personas: the platform-owner anchor (`OS_PLATFORM_OWNER_EMAIL`) ignores an unverified row. */
+    email_verified: {},
+    /** Written only on the platform owner, to make it the OLDEST user for the first-user carve-out (see `personas.ts`). */
+    created_at: {},
     locale: {},
+  },
+} as const;
+
+/**
+ * `sys_account` — the credential row better-auth signs a user in with. A
+ * local password login is the row `provider_id: 'credential'`, `issuer:
+ * 'local:credential'`, `account_id: <the user's id>` (better-auth 1.7 keys
+ * account identity on the issuer/account_id pair, and the sign-in route
+ * matches all three before it looks at the password). `password` is the
+ * scrypt digest better-auth verifies against — never a plaintext; see
+ * `personas.ts` for how the seeded digests are produced.
+ */
+export const SysAccount = {
+  name: 'sys_account',
+  fields: {
+    id: {},
+    user_id: { type: 'lookup', reference: 'sys_user' },
+    provider_id: {},
+    issuer: {},
+    account_id: {},
+    password: {},
   },
 } as const;
 

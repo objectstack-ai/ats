@@ -3,6 +3,7 @@ import { SkillSeed } from './skill.seed.js';
 import { CredentialTypeSeed } from './credential-type.seed.js';
 import { SysOrganizationSeed } from './sys-organization.seed.js';
 import { SysUserSeed } from './sys-user.seed.js';
+import { SysAccountSeed } from './sys-account.seed.js';
 import { SysMemberSeed } from './sys-member.seed.js';
 import { SysUserPositionSeed } from './sys-user-position.seed.js';
 import { EmployerSeed } from './employer.seed.js';
@@ -20,9 +21,10 @@ export const seeds: Seed[] = [
   // Dictionaries first — everything below references them by name.
   SkillSeed,
   CredentialTypeSeed,
-  // Platform identity — organizations, users, memberships, persona grants.
+  // Platform identity — organizations, users, their sign-in credentials, memberships, persona grants.
   SysOrganizationSeed,
   SysUserSeed,
+  SysAccountSeed,
   SysMemberSeed,
   SysUserPositionSeed,
   // Employer domain.
