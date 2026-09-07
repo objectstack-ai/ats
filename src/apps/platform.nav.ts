@@ -10,6 +10,9 @@ import type { NavigationItemInput } from '@objectstack/spec/ui';
  * The review queues are `filters` slices on the bare data surface, not
  * authored views: `verification_status` / `status` equality is the whole
  * definition and the runtime serialises it as `filter[<field>]=<value>`.
+ * The inquiry queue is the exception: it mounts an authored view
+ * (`ats_inquiry.inbox`), because the queue has real columns to show and a
+ * `filters` slice derives its columns from `highlightFields` alone (#33).
  * The four objects with no authored view (`ats_employer`, `ats_report`,
  * `ats_skill`, `ats_credential_type`) land on the default list — `viewName`
  * defaults to `all`, which the shell synthesises when nothing is declared.
@@ -40,6 +43,7 @@ export const PlatformNavigation: NavigationItemInput[] = [
         objectName: 'ats_job',
         filters: { status: 'pending_review' },
       },
+      { id: 'nav_platform_inquiries', type: 'object', label: 'Inquiries', icon: 'mail-plus', objectName: 'ats_inquiry', viewName: 'inbox' },
     ],
   },
   { id: 'nav_platform_employers', type: 'object', label: 'Employers', icon: 'building-2', objectName: 'ats_employer' },

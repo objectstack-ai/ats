@@ -1,0 +1,11 @@
+=== Ablation A: employer RLS policies on ats_inquiry removed (driver memory) ===
+--- HEAD: 533c22c; src/security/permission-sets.ts at HEAD blob b8f7ea5230
+[BASELINE (shipped)] 2026-09-07T14:14:53.214Z ats_inquiry visible — Harborline admin: 2 (employer_orgs seen: ["org_ats_harborline"]) · Quillstone admin: 3 · Quillstone recruiter: 3 · platform ops (all): 9
+policies naming ats_inquiry before=2 after=0 (RLS object refs)
+--- mutation on disk: ABLATION-A markers=2 · inquiry policies left=0
+restarted (count 4 → 5) after ~15s
+[MUTATED: no employer RLS on ats_inquiry] 2026-09-07T14:15:06.898Z ats_inquiry visible — Harborline admin: 8 (employer_orgs seen: ["org_ats_quillstone","org_ats_harborline","org_ats_cedarbrook","org_ats_brightmarket","org_ats_summitridge","org_ats_swiftroute"]) · Quillstone admin: 8 · Quillstone recruiter: 8 · platform ops (all): 8
+--- restore src/security/permission-sets.ts: worktree b8f7ea523024a57e8d59cea4661b925363481caf HEAD b8f7ea523024a57e8d59cea4661b925363481caf MATCH
+--- git diff HEAD --stat: [] (empty = restored)
+restarted (count 5 → 6) after ~15s
+[RESTORED] 2026-09-07T14:15:20.663Z ats_inquiry visible — Harborline admin: 2 (employer_orgs seen: ["org_ats_harborline"]) · Quillstone admin: 2 · Quillstone recruiter: 2 · platform ops (all): 8

@@ -229,6 +229,18 @@ export const pack: LocalePack = {
     { subject: 'Pixelforge Studios verification documents look incomplete', description: 'The uploaded registration appears to be a draft.' },
   ],
 
+  // Aligned with INQUIRIES: rows 1, 3 and 7 are seeded candidates (no name here).
+  inquiries: [
+    { name: 'Mara Ellsworth', coverLetter: 'I have shipped motion-planning code for two generations of pick-and-place arms and would like to do it for collaborative robots.' },
+    { coverLetter: 'I service industrial equipment on customer sites already and hold a current forklift licence; happy to travel across the region.' },
+    { name: 'Devon Ashcroft', coverLetter: 'Six years on five-axis machining centres, mostly aluminium and stainless housings; comfortable programming from drawings.' },
+    { coverLetter: 'Currently inspecting stamped parts on a line very like yours; CMM and gauge R&R experience.' },
+    { name: 'Priya Venkataraman', coverLetter: 'Registered nurse with four years on a medical-surgical ward, two of them on permanent nights.' },
+    { name: 'Tobias Renner', coverLetter: 'I run a 30-person neighbourhood store today and want a larger format and a team to grow.' },
+    { name: 'Adaeze Okonkwo', coverLetter: 'Credit analyst covering mid-market lending; strong on scorecard monitoring and covenant tracking.' },
+    { coverLetter: 'I lead an inbound team of twelve on a night shift and am looking for a day role closer to home.' },
+  ],
+
   interviewLocations: {
     onsite: '{city} office, meeting room {room}',
     video: 'https://meet.example',

@@ -78,6 +78,26 @@ import { definePermissionSet } from '@objectstack/spec/security';
  * own application from them — the seeker is not a member of the employer's
  * organization. Business RLS lets the two audiences carry different policies
  * over the same rows, which is exactly the marketplace shape.
+ *
+ * ## The public application entry has NO guest permission set (#32, #37)
+ *
+ * `ats_inquiry` is the object the anonymous public form writes to (DESIGN.md
+ * §04). Nothing here grants that write, and nothing can: the REST form route
+ * authorises an anonymous `POST /api/v1/forms/SLUG/submit` with a
+ * request-scoped `publicFormGrant: { object }` DERIVED from the form's own
+ * declaration (ADR-0056 Option A), and plugin-security admits exactly the
+ * insert + immediate read-back on that one object under it — before any
+ * permission set is consulted. The set this file used to declare for the
+ * purpose, `ats_guest_apply` (INSERT-only on `ats_application`), was read by
+ * nothing in the framework and gated nothing; the only set NAME the route
+ * ever puts on the context is the back-compat `guest_portal`, and measured on
+ * cli 17.3.0 even a set of THAT name denying the insert does not stop it
+ * (`docs/evidence/issue-37/`). It is deleted rather than renamed: a
+ * declaration that cannot take effect is a false comment about where the
+ * boundary is. The anonymous boundary is the form declaration
+ * (`inquiry.view.ts`, `formViews.apply_public` — its `sections` ARE the field
+ * whitelist) plus the object's own hooks; the sets below only decide who may
+ * READ and TRIAGE an inquiry once it exists.
  */
 
 /** Runs the platform. Org-wide reach on everything. */
@@ -97,6 +117,7 @@ export const PlatformAdminSet = definePermissionSet({
     ats_interview:            { allowRead: true, allowCreate: true, allowEdit: true, allowDelete: true, viewAllRecords: true, modifyAllRecords: true },
     ats_offer:                { allowRead: true, allowCreate: true, allowEdit: true, allowDelete: true, viewAllRecords: true, modifyAllRecords: true },
     ats_report:               { allowRead: true, allowCreate: true, allowEdit: true, allowDelete: true, viewAllRecords: true, modifyAllRecords: true },
+    ats_inquiry:              { allowRead: true, allowCreate: true, allowEdit: true, allowDelete: true, viewAllRecords: true, modifyAllRecords: true },
     ats_skill:                { allowRead: true, allowCreate: true, allowEdit: true, allowDelete: true },
     ats_credential_type:      { allowRead: true, allowCreate: true, allowEdit: true, allowDelete: true },
   },
@@ -122,6 +143,8 @@ export const PlatformOpsSet = definePermissionSet({
     ats_interview:            { allowRead: true, viewAllRecords: true },
     ats_offer:                { allowRead: true, viewAllRecords: true },
     ats_report:               { allowRead: true, allowEdit: true, viewAllRecords: true },
+    // The inquiry queue: read it all, triage and convert (edit), create none.
+    ats_inquiry:              { allowRead: true, allowEdit: true, viewAllRecords: true },
     ats_skill:                { allowRead: true, allowCreate: true, allowEdit: true },
     ats_credential_type:      { allowRead: true, allowCreate: true, allowEdit: true },
   },
@@ -144,6 +167,9 @@ export const EmployerAdminSet = definePermissionSet({
     ats_interview:            { allowRead: true, allowCreate: true, allowEdit: true, allowDelete: true, readScope: 'org', writeScope: 'org' },
     ats_offer:                { allowRead: true, allowCreate: true, allowEdit: true, readScope: 'org', writeScope: 'org' },
     ats_report:               { allowCreate: true },
+    // Inquiries for this employer's jobs: read and triage (convert / reject /
+    // spam), never create — an inquiry is born only through the public form.
+    ats_inquiry:              { allowRead: true, allowEdit: true, readScope: 'org', writeScope: 'org' },
     ats_skill:                { allowRead: true },
     ats_credential_type:      { allowRead: true },
   },
@@ -169,6 +195,13 @@ export const EmployerAdminSet = definePermissionSet({
       using: 'record.employer_org in current_user.employer_org_ids',
       check: 'record.employer_org in current_user.employer_org_ids' },
     { name: 'employer_admin_offers',      object: 'ats_offer',           operation: 'all',
+      using: 'record.employer_org in current_user.employer_org_ids',
+      check: 'record.employer_org in current_user.employer_org_ids' },
+    // Inquiries scope like applications: `employer_org` is stamped from the
+    // job on insert. The `check` is evaluated on the pre-image merged with the
+    // change set for an UPDATE, so triage passes; it never sees an INSERT
+    // (no create grant above), which is the objectstack#16608 hazard avoided.
+    { name: 'employer_admin_inquiries',   object: 'ats_inquiry',         operation: 'all',
       using: 'record.employer_org in current_user.employer_org_ids',
       check: 'record.employer_org in current_user.employer_org_ids' },
     // The consent-gated candidate pool (header, DESIGN.md §03): the union of
@@ -200,12 +233,21 @@ export const EmployerRecruiterSet = definePermissionSet({
     ats_interview:            { allowRead: true, allowCreate: true, allowEdit: true, readScope: 'org', writeScope: 'org' },
     ats_offer:                { allowRead: true, allowCreate: true, readScope: 'org', writeScope: 'org' },
     ats_report:               { allowCreate: true },
+    // Same queue as the administrator; the contact seals below are what differ.
+    ats_inquiry:              { allowRead: true, allowEdit: true, readScope: 'org', writeScope: 'org' },
     ats_skill:                { allowRead: true },
     ats_credential_type:      { allowRead: true },
   },
   fields: {
     'ats_candidate.phone':               { readable: false, editable: false },
     'ats_candidate.email':               { readable: false, editable: false },
+    // The same contact details, one row earlier in the applicant's life: an
+    // inquiry carries the e-mail and phone the candidate row will inherit, so
+    // the recruiter seal has to hold here too or it holds nowhere. Conversion
+    // still works for a recruiter — the hook reads the row elevated
+    // (`runAs: 'system'`), never through this seal.
+    'ats_inquiry.phone':                 { readable: false, editable: false },
+    'ats_inquiry.email':                 { readable: false, editable: false },
     'ats_candidate.expected_salary_min': { readable: false, editable: false },
     'ats_candidate.expected_salary_max': { readable: false, editable: false },
     'ats_job.review_note':               { readable: false, editable: false },
@@ -223,6 +265,9 @@ export const EmployerRecruiterSet = definePermissionSet({
       using: 'record.employer_org in current_user.employer_org_ids',
       check: 'record.employer_org in current_user.employer_org_ids' },
     { name: 'recruiter_offers',       object: 'ats_offer',           operation: 'all',
+      using: 'record.employer_org in current_user.employer_org_ids',
+      check: 'record.employer_org in current_user.employer_org_ids' },
+    { name: 'recruiter_inquiries',    object: 'ats_inquiry',         operation: 'all',
       using: 'record.employer_org in current_user.employer_org_ids',
       check: 'record.employer_org in current_user.employer_org_ids' },
     // Same pool as the administrator; the field seals above are what differ.
@@ -277,17 +322,4 @@ export const JobSeekerSet = definePermissionSet({
       using: 'candidate_user == current_user.id',
       check: 'candidate_user == current_user.id' },
   ],
-});
-
-/**
- * Anonymous applicants through the public form (card 08). INSERT-only: a guest
- * can hand in an application and read nothing back, ever.
- */
-export const GuestApplySet = definePermissionSet({
-  name: 'ats_guest_apply',
-  label: 'Guest (Public Application Form)',
-  description: 'Anonymous submission of the public application form. No reads.',
-  objects: {
-    ats_application: { allowRead: false, allowCreate: true, allowEdit: false, allowDelete: false },
-  },
 });

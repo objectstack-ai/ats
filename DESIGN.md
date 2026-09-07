@@ -21,7 +21,7 @@
 
 ## 02 对象模型
 
-前缀 `ats_`（Applicant Tracking System）。11 个对象，三个域，各对应一组受众分区。
+前缀 `ats_`（Applicant Tracking System）。12 个对象，三个域，各对应一组受众分区。
 
 ```
 雇主域                      招聘事务域                   候选人域
@@ -29,6 +29,7 @@ ats_employer   [private]    ats_application [private]    ats_candidate          
 ats_employer_member [MD]    ats_interview   [MD]         ats_candidate_credential [MD]
 ats_job        [public_read] ats_offer      [private]    ats_skill                [public_read]
                             ats_report      [private]    ats_credential_type      [public_read]
+                            ats_inquiry     [private]    ← 公开投递入口（2026-09-07 裁决，#3 → #37）
 ```
 
 `[MD]` = master-detail 子对象，`sharingModel: 'controlled_by_parent'`。
@@ -48,6 +49,7 @@ ats_job        [public_read] ats_offer      [private]    ats_skill              
 | `ats_interview` `by parent` | display_name（镜像 "<candidate> · R<round>"）· application* MD cascade · round · scheduled_at* datetime · duration_minutes · mode `onsite/video/phone` · location_or_link · interviewers user×n · status `scheduled/completed/cancelled/no_show` · rating · feedback |
 | `ats_offer` `private` | display_name · application* · employer lookup（RLS 冗余）· salary currency · salary_period · start_date · **status** `draft/pending_approval/approved/sent/accepted/declined/withdrawn` · approved_by user · expires_at · notes |
 | `ats_report` `private` | subject* · target_type* `job/candidate/application/employer` · target_ref* · reason `fake_info/harassment/spam/discrimination/other` · description · reporter user · status `new/investigating/resolved/dismissed` · resolution · handled_by user |
+| `ats_inquiry` `private` | display_name（镜像 "<applicant> → <job>"，nameField）· job* lookup · full_name* · email* · phone · cover_letter · resume file · employer lookup + employer_org（自 job 盖章，RLS 冗余）· submitted_at · **status** `new/converted/rejected/spam` · candidate lookup · application lookup · converted_at（后三者由转换写入）。匿名投递者经公开表单写入的**隔离对象**：只接受表单白名单字段，转换后才有候选人与投递 |
 | `ats_skill` `public_read` | name* · category `technical/domain/tool/language/soft` · aliases · description |
 | `ats_credential_type` `public_read` | name* · issuer · description · has_levels · validity_months |
 
@@ -58,6 +60,7 @@ ats_job        [public_read] ats_offer      [private]    ats_skill              
 - `ats_application.stage`：applied→screening/rejected/withdrawn；screening→interview/rejected/withdrawn；interview→offer/rejected/withdrawn；offer→hired/rejected/withdrawn；hired/rejected/withdrawn 终态
 - `ats_offer.status`：draft→pending_approval/withdrawn；pending_approval→approved/draft；approved→sent/withdrawn；sent→accepted/declined/withdrawn；accepted/declined/withdrawn 终态
 - `ats_report.status`：new→investigating/dismissed；investigating→resolved/dismissed；resolved/dismissed 终态
+- `ats_inquiry.status`：`initialStates: ['new']`（任何写入都不能生出已转换/已分诊的行）；new→converted/rejected/spam；rejected→new；spam→new；converted 终态
 
 ### 两个刻意的取舍
 
@@ -142,7 +145,7 @@ Layer 0 墙不是全有全无的。`plugin-security/src/security-plugin.ts:2940`
 | 分类 | 对象 | 隔离由谁承担 |
 |---|---|---|
 | **进墙**（`tenancy` 开启） | `ats_employer` · `ats_employer_member` · `ats_interview` · `ats_offer` | Layer 0 引擎级墙 + RLS |
-| **平台全局**（`tenancy: { enabled: false }`） | `ats_candidate` · `ats_candidate_credential` · `ats_skill` · `ats_credential_type` · `ats_report` | 仅 RLS |
+| **平台全局**（`tenancy: { enabled: false }`） | `ats_candidate` · `ats_candidate_credential` · `ats_skill` · `ats_credential_type` · `ats_report` · `ats_inquiry` | 仅 RLS |
 | **平台全局 · 联合归属** | `ats_application` · `ats_job` | 仅 RLS：雇主侧按 `employer_org`，求职者侧按 `candidate_user` / 本人 |
 
 `ats_application` 是唯一需要论证的一格：它同时属于求职者和雇主，而企业 SaaS 租户模型假设「每行恰好属于一个租户」。
@@ -243,6 +246,7 @@ record.id in current_user.applicant_candidate_ids       本机构申请人
 | ats_offer | RCUD | R | RCU（本机构·审批人）| RC（本机构·提交）| RU（本人·接受/拒绝）|
 | ats_candidate_credential | RCUD | RU（核验）| R（随候选人）| R（随候选人）| RCUD（本人）|
 | ats_report | RCUD | RU（处置）| C | C | C |
+| ats_inquiry | RCUD | RU（分诊·转换）| RU（本机构岗位的投递）| RU（同上）| —（匿名经公开表单 C，由路由推导的 `publicFormGrant` 授权，不是权限集）|
 | ats_skill · ats_credential_type | RCUD | RCU | R | R | R |
 
 ### 字段级安全
@@ -250,6 +254,7 @@ record.id in current_user.applicant_candidate_ids       本机构申请人
 | 字段 | 对谁遮蔽 | 理由 |
 |---|---|---|
 | `ats_candidate.phone / email` | employer_recruiter | 最易被批量抓取；仅 employer_admin 可见，读取落审计 |
+| `ats_inquiry.phone / email` | employer_recruiter | 同一份联系方式，只是早一行：投递转换后候选人行继承的正是它，这里不封则前一条封了也白封。转换不受影响 —— 钩子以 `runAs: 'system'` 读行 |
 | `ats_candidate.expected_salary_*` | employer_admin · employer_recruiter | 期望薪资先于议价暴露损害候选人。FLS 按权限集静态判定，`profile_visibility` **不能**按行放开任何字段 —— 原句「候选人可经 `profile_visibility` 自主放开」是一个没有实现也实现不了的承诺，#13 删除 |
 | `ats_job.review_note` · `ats_employer.verification_note` | 所有雇主侧与求职者角色 | 平台内部意见，驳回理由走独立字段回传 |
 
@@ -280,7 +285,7 @@ record.id in current_user.applicant_candidate_ids       本机构申请人
 > Console 里的这一组是给内部与调试用的兜底，不是产品面。
 
 
-**公开投递入口**：岗位详情挂 `sharing: { enabled: true, allowAnonymous: true }` 的公开表单视图，授权由表单声明推导，只接受白名单字段。
+**公开投递入口（2026-09-07 裁决，#3 → #37：先入库，再转换）**：匿名投递不能直接落到 `ats_application` —— 公开表单契约在一个对象上插入**恰好一行**，而 `ats_application.candidate` 是必填且带 `(job, candidate)` 唯一索引，实测无论如何拼装都是 `400 Candidate is required`（`docs/evidence/issue-3/20-anonymous-public-form-probe-transcript.txt`）。所以入口是**隔离对象 `ats_inquiry`**：`ats_inquiry.formViews.apply_public` 挂 `sharing: { enabled: true, allowAnonymous: true, publicLink: '/forms/apply' }`，服务于 `GET/POST /api/v1/forms/apply` 与 `/_console/f/apply`；**授权由表单声明推导**（路由按请求生成 `publicFormGrant: { object: 'ats_inquiry' }`，只许在这一个对象上插入并回读刚写的那行），**表单的 `sections` 就是字段白名单**，其它键一律丢弃。⛔ 没有、也不可能有"访客权限集"：曾经声明的 `ats_guest_apply` 框架里无人读取，路由放到上下文里的唯一集名 `guest_portal` 也在授权分支之前就被短路（实测连同名且拒绝插入的集都拦不住，#32），已删除。岗位经 `?prefill_job=` 从岗位页的"公开投递链接"带入，不经搜索（匿名 lookup 路由上游损坏，objectstack#16581）；stamp hook 只接受 `published` 的岗位。平台或雇主用户在收件队列里**转换**（`status → converted`）：按 e-mail 找到或新建候选人（新建为 `hidden`，因为匿名投递者只同意了一家雇主看一个岗位）、按 `(job, candidate)` 找到或新建投递、把两者回写到同一次更新里。转换以调用者身份写入，谁能转换由其对 `ats_inquiry` 的更新授权与行级策略决定；新投递的 `employer_org` 正是让转换方读到该候选人的申请人路径（§03《候选人同意门控池》）。
 
 **看板**：平台总览（雇主数 · 在招岗位 · 本月投递 · 活跃候选人 · 待审队列）· 录用转化漏斗（applied→screening→interview→offer→hired）· 雇主招聘看板（在招岗位 · 待处理简历 · 本周面试 · 平均到 Offer 天数）。
 
@@ -305,6 +310,7 @@ record.id in current_user.applicant_candidate_ids       本机构申请人
 | ats_application | 200 | 按漏斗铺：applied 88 · screening 46 · interview 28 · offer 14 · hired 9 · rejected 15 |
 | ats_interview | 40 | **未来两周内**有排期 |
 | ats_offer | 14 | 3 条 `pending_approval` |
+| ats_inquiry | 8 | 全部 `new`；5 位无候选人行的投递者、3 位已入库候选人（转换后挂到既有行）；2 条 Quillstone、2 条 Harborline |
 | ats_skill / ats_credential_type | 60 / 15 | 字典先行 |
 
 两套种子，一份 schema：`demo-en`（默认，跨行业英文）· `demo-zh`（中文）。
@@ -313,9 +319,10 @@ record.id in current_user.applicant_candidate_ids       本机构申请人
 
 ```
 objectstack.config.ts      defineStack 装配入口，engines.protocol '^17'
-src/objects/               11 个 *.object.ts
-src/views/                 看板 / 日历 / 收件箱 / 人才库 / 公开投递表单
+src/objects/               12 个 *.object.ts
+src/views/                 看板 / 日历 / 收件箱 / 人才库 / 公开投递表单（ats_inquiry）
 src/apps/                  1 个 App，三组受众分区（ADR-0019 D3）
+src/actions/               投递分诊（转换 / 拒绝 / 垃圾）· 岗位页公开投递链接
 src/flows/  src/jobs/      F1–F6
 src/dashboards/            3 个看板 + dataset
 src/security/              5 positions · 5 permission sets · RLS · FLS · onEnable 绑定

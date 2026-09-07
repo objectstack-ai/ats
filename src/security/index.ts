@@ -12,7 +12,6 @@ export {
   EmployerAdminSet,
   EmployerRecruiterSet,
   JobSeekerSet,
-  GuestApplySet,
 } from './permission-sets.js';
 
 export { registerAtsPositionBindings } from './bind-position-sets.js';

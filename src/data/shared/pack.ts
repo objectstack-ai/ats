@@ -60,6 +60,12 @@ export interface ReportText {
   resolution?: string;
 }
 
+export interface InquiryText {
+  /** The applicant's name — only for `INQUIRIES[i].applicant.kind === 'new'`; a seeded candidate keeps their own. */
+  name?: string;
+  coverLetter: string;
+}
+
 export interface LocalePack {
   /** BCP-47 tag written onto the seeded user rows. */
   locale: 'en' | 'zh-CN';
@@ -82,6 +88,8 @@ export interface LocalePack {
   levels: Readonly<Record<string, string>>;
   /** Six reports, aligned with `REPORTS`. */
   reports: readonly ReportText[];
+  /** Eight public-form inquiries, aligned with `INQUIRIES`. */
+  inquiries: readonly InquiryText[];
   /** Interview `location_or_link` text per mode; `{city}` and `{room}` are substituted. */
   interviewLocations: { readonly onsite: string; readonly video: string; readonly phone: string };
   offerNote: string;

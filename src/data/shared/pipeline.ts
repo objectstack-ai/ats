@@ -16,6 +16,9 @@
  *   interviews:   40 · every row on an interview-stage application ·
  *                 day 1–14 from seed time (12 applications carry a round 2)
  *   offers:       14 · one per offer-stage application · 3 pending_approval
+ *   inquiries:    8 · all `new` · 5 from people with no candidate row, 3 from
+ *                 seeded candidates (converting one attaches to that row) ·
+ *                 every job published · 2 Quillstone · 2 Harborline
  */
 
 export type Stage = 'applied' | 'screening' | 'interview' | 'offer' | 'hired' | 'rejected';
@@ -58,6 +61,32 @@ export interface OfferRow {
   startInDays: number;
   expiresInDays: number;
 }
+
+/**
+ * An anonymous public-form application waiting in the `ats_inquiry` queue
+ * (#37). Either a person who does not exist as a candidate yet (`new` — the
+ * e-mail is `applicantEmail(index)`), or a seeded candidate applying through
+ * the public form instead of signing in (`candidate` — conversion then
+ * matches the existing row by e-mail rather than creating a second).
+ */
+export interface InquiryRow {
+  /** Index into the jobs table — a PUBLISHED job (the stamp hook refuses anything else). */
+  job: number;
+  applicant: { kind: 'new'; index: number } | { kind: 'candidate'; index: number };
+  /** Days before seed time the form was submitted (`daysAgo(n)`). */
+  submittedDaysAgo: number;
+}
+
+export const INQUIRIES: readonly InquiryRow[] = [
+  /* 0 */ { job: 0,  applicant: { kind: 'new',       index: 0 },  submittedDaysAgo: 1 },
+  /* 1 */ { job: 2,  applicant: { kind: 'candidate', index: 14 }, submittedDaysAgo: 2 },
+  /* 2 */ { job: 5,  applicant: { kind: 'new',       index: 1 },  submittedDaysAgo: 1 },
+  /* 3 */ { job: 7,  applicant: { kind: 'candidate', index: 21 }, submittedDaysAgo: 3 },
+  /* 4 */ { job: 10, applicant: { kind: 'new',       index: 2 },  submittedDaysAgo: 2 },
+  /* 5 */ { job: 15, applicant: { kind: 'new',       index: 3 },  submittedDaysAgo: 4 },
+  /* 6 */ { job: 22, applicant: { kind: 'new',       index: 4 },  submittedDaysAgo: 5 },
+  /* 7 */ { job: 27, applicant: { kind: 'candidate', index: 59 }, submittedDaysAgo: 6 },
+];
 
 export interface CandidateRow {
   track: 'tech' | 'mfg' | 'health' | 'retail' | 'edu' | 'fin' | 'log' | 'hosp' | 'con';

@@ -1,0 +1,16 @@
+=== #32: are guest_portal / ats_guest_apply consulted on the anonymous form route? (driver sqlite) ===
+--- HEAD: 533c22c; files at HEAD: src/security/permission-sets.ts=b8f7ea5230 src/security/index.ts=6f50efa334 objectstack.config.ts=db8663be6d 
+--- mutation on disk: permission-sets MUTATION-32 markers=2 · config registers=4 · index exports=2
+restarted (count 3 → 4) after ~15s
+--- sets registered at boot (server log, after restart):
+4355:[Registry] Registered permission: ats:ats_employer_recruiter
+4356:[Registry] Registered permission: ats:ats_job_seeker
+4357:[Registry] Registered permission: ats:guest_portal
+4358:[Registry] Registered permission: ats:ats_guest_apply
+[MUTATED: guest_portal + ats_guest_apply declared, both DENY create on ats_inquiry] 2026-09-07T14:21:59.894Z anonymous POST /api/v1/forms/apply/submit (published job published) → HTTP 201 {"id":"lx922yTAhmim7WNh","status":"new"}; ats_inquiry count 16 → 17
+--- restore src/security/permission-sets.ts: worktree b8f7ea523024a57e8d59cea4661b925363481caf HEAD b8f7ea523024a57e8d59cea4661b925363481caf MATCH
+--- restore src/security/index.ts: worktree 6f50efa334217bf637f9741c20e5ed27bfb1207d HEAD 6f50efa334217bf637f9741c20e5ed27bfb1207d MATCH
+--- restore objectstack.config.ts: worktree db8663be6d223b096919d465ca9a9b866ea77e79 HEAD db8663be6d223b096919d465ca9a9b866ea77e79 MATCH
+--- git diff HEAD --stat: [] (empty = restored)
+restarted (count 4 → 5) after ~15s
+[RESTORED: no guest set declared (shipped state)] 2026-09-07T14:22:12.979Z anonymous POST /api/v1/forms/apply/submit (published job published) → HTTP 201 {"id":"FL4tNU14GLiu25mi","status":"new"}; ats_inquiry count 17 → 18
