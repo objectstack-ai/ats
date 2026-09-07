@@ -26,6 +26,20 @@ export const Job = ObjectSchema.create({
   // `employer_org` at the row-level layer.
   tenancy: { enabled: false },
 
+  // ADR-0085 ordered "most important fields" — what the platform "Jobs Pending"
+  // nav slice, the employer record's Jobs related list and the job record
+  // header lead with when no column list is authored (#33). Undeclared, the
+  // field walk handed a reviewer `Description` and `Requirements` — two
+  // rich-text columns — and neither `status` nor the location.
+  //
+  // `work_mode` sits where the card proposed `published_at`: the state machine
+  // only reaches `published` THROUGH `pending_review`, so `published_at` is
+  // null on every row this queue can ever contain (measured: 0 of 6 pending,
+  // and 0 of the 12 rows in draft/pending_review/rejected). `work_mode` is set
+  // on 40 of 40 and completes the terms pair a reviewer checks with
+  // `employment_type`. `published_at` stays on the record's Details tab.
+  highlightFields: ['title', 'employer', 'status', 'city', 'employment_type', 'work_mode'],
+
   fields: {
     title: Field.text({
       label: 'Job Title',

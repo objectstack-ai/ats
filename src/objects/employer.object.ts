@@ -20,6 +20,18 @@ export const Employer = ObjectSchema.create({
   // security layer; job seekers only ever see verified employers through jobs.
   sharingModel: 'private',
 
+  // The ordered "most important fields" role (ADR-0085, spec 17 — renamed from
+  // `compactLayout` in 11.7.0). Every surface that has no authored column list
+  // derives from this: the platform "Employers Pending" nav slice (a `filters`
+  // slice on the bare data surface, which never reads an object's authored
+  // list), the record header strip, lookup previews. Undeclared, the walk took
+  // the first six business fields and gave a verification reviewer
+  // `Short Name`, `Logo` and `Company Size` but not the verdict field, not the
+  // contact (#33). `verification_docs` is deliberately absent: the seed carries
+  // it on 0 of 12 rows and a multi-file column cannot be read at a glance —
+  // the reviewer opens it on the record.
+  highlightFields: ['name', 'industry', 'city', 'verification_status', 'service_tier', 'owner'],
+
   fields: {
     name: Field.text({
       label: 'Employer Name',
