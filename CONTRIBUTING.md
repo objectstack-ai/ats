@@ -16,6 +16,7 @@ coding agents working from the same rules. Those rules live in three files; this
 pnpm install
 pnpm validate     # protocol schema + CEL predicates (record.<field> existence) + widget bindings
 pnpm lint         # data-model conventions + zh-CN translation parity (--i18n-strict)
+                  # + en.ts source parity (pnpm check:i18n-source, runnable on its own)
 pnpm typecheck
 ```
 
@@ -100,9 +101,19 @@ validation messages, action copy, navigation, dashboards, datasets — exists in
 - `zh-CN` is authored in [`src/translations/zh-CN.ts`](./src/translations/zh-CN.ts), with the vocabulary
   `DESIGN.md` fixes. Do not machine-translate the domain words.
 
-`pnpm lint` fails when a translatable key is missing in either file; `npx objectstack i18n check --show-keys`
-lists exactly which. The Studio's own metadata-form strings are the platform's and are not this
-repository's to translate (`lint` hides them unless you pass `--include-platform`).
+Two different gates, both inside `pnpm lint`:
+
+- **Coverage** — `objectstack lint --i18n-strict` fails when a translatable key is missing from a
+  non-default locale, i.e. from `zh-CN`; `npx objectstack i18n check --show-keys` lists exactly which. It
+  cannot speak for `en`: it reports the source locale as 100 % translated, because the source label *is*
+  the translation.
+- **Source parity** — `pnpm check:i18n-source` ([`scripts/check-i18n-source.mjs`](./scripts/check-i18n-source.mjs))
+  compares every one of `en.ts`'s 507 keys against the label its metadata declares in the built artifact,
+  and fails on a drifted value, a key whose metadata is gone, or a source label `en.ts` never restates.
+  Renaming a label without renaming it in `en.ts` is a red gate, not a silent runtime override (#63).
+
+The Studio's own metadata-form strings are the platform's and are not this repository's to translate
+(both gates exclude them; `lint` shows them with `--include-platform`).
 
 ## Skills for coding agents
 

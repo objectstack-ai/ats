@@ -40,7 +40,7 @@ asks for `zh-CN` ([`07-…-zh-CN.png`](docs/screenshots/07-hiring-pipeline-kanba
 - **Three audiences, one metadata set** — platform ops, employer, job seeker each get their own navigation group over the same objects.
 - **Credentials are first-class** — "licensed to practise, re-certified before expiry" is core, not a plugin.
 - **Industry-neutral by rule** — no vertical vocabulary in the schema; industries live in seed data only.
-- **Two locales** — every label, option, section, message and navigation item exists in `en` and `zh-CN`, and `pnpm lint` fails when one is missing.
+- **Two locales** — every label, option, section, message and navigation item exists in `en` and `zh-CN`, and `pnpm lint` fails when one is missing, or when an `en` entry stops matching the label its metadata declares.
 
 ## Quick start
 
@@ -160,6 +160,7 @@ Every metadata change is gated, locally and in [CI](./.github/workflows/ci.yml):
 ```bash
 pnpm validate     # protocol schema + CEL predicates + bindings
 pnpm lint         # data-model conventions (ADR-0090 vocabulary, titles, master-detail) + zh-CN parity
+                  # + en.ts source parity (pnpm check:i18n-source, runnable on its own)
 pnpm typecheck
 ```
 

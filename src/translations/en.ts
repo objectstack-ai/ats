@@ -9,17 +9,23 @@ import type { TranslationData } from '@objectstack/spec/system';
  * `en` is the source locale: every inline `label:` in src/ already IS the
  * English text, and the runtime falls back to it. This file restates those
  * strings so the two locale files have the same shape and a translator can
- * diff them line for line. ⚠️ That means a label renamed in an object file
- * must be renamed here too — a stale entry here wins over the source label at
- * runtime, and no gate catches it (coverage counts a key as translated as soon
- * as it exists).
+ * diff them line for line. That means a label renamed in an object file must be
+ * renamed here too — a stale entry here wins over the source label at runtime.
  *
- * Coverage is measured, not asserted: `pnpm lint` runs `objectstack lint
- * --i18n-strict`, which fails on any key this file lacks for a locale in
- * `supportedLocales` (objectstack.config.ts). `npx objectstack i18n check
- * --show-keys` lists the gaps. The Studio's own metadata-form strings are not
- * here on purpose — the platform packages ship those, and lint hides that
- * bucket unless `--include-platform` is passed.
+ * That trap is now gated (#63). `pnpm lint` runs `pnpm check:i18n-source`, which
+ * compares all 507 keys below against the labels the metadata declares in
+ * `dist/objectstack.json` and fails on three kinds of drift: a value that no
+ * longer matches its source label, a key whose metadata is gone, and a source
+ * label this file never restates. Run it alone with `pnpm check:i18n-source`;
+ * `scripts/check-i18n-source.mjs` documents how each key is resolved.
+ *
+ * Coverage is a different question and is also measured: `objectstack lint
+ * --i18n-strict` fails on any key this file lacks for a NON-default locale in
+ * `supportedLocales` (objectstack.config.ts) — it cannot speak for `en`, which
+ * it counts as 100 % translated because the source label is the translation.
+ * `npx objectstack i18n check --show-keys` lists the gaps. The Studio's own
+ * metadata-form strings are not here on purpose — the platform packages ship
+ * those, and lint hides that bucket unless `--include-platform` is passed.
  *
  * Keys are the object / field / option / view / app / dashboard / dataset
  * NAMES, never their labels (`objects.ats_job.fields.status.options.published`).

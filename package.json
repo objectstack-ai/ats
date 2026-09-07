@@ -13,7 +13,8 @@
     "start": "objectstack start",
     "build": "objectstack build",
     "validate": "objectstack validate",
-    "lint": "objectstack lint --i18n-strict",
+    "lint": "objectstack lint --i18n-strict && pnpm check:i18n-source",
+    "check:i18n-source": "objectstack build && node scripts/check-i18n-source.mjs --self-test && node scripts/check-i18n-source.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
