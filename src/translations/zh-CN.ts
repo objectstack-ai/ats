@@ -103,6 +103,10 @@ export const zhCN: TranslationData = {
         last_activity_at: {
           label: '最近活动',
         },
+        days_to_offer: {
+          label: '到 Offer 天数',
+          help: '从投递到本投递第一份 Offer 的整天数。该 Offer 写入时打戳；不可编辑，也不再重算。',
+        },
         interview_count: {
           label: '面试次数',
         },
@@ -1106,7 +1110,7 @@ export const zhCN: TranslationData = {
   dashboards: {
     ats_employer_hiring: {
       label: '雇主招聘看板',
-      description: '本机构的在招岗位、待处理投递、本周面试，以及按阶段划分的招聘流程。',
+      description: '本机构的在招岗位、待处理投递、本周面试、平均到 Offer 天数，以及按阶段划分的招聘流程。',
       widgets: {
         open_jobs: {
           title: '在招岗位',
@@ -1119,6 +1123,10 @@ export const zhCN: TranslationData = {
         interviews_this_week: {
           title: '本周面试',
           description: '本周一至周日排期的面试轮次，不含已取消。',
+        },
+        avg_days_to_offer: {
+          title: '平均到 Offer 天数',
+          description: '本机构已录用投递从投递到第一份 Offer 的平均天数。',
         },
         pipeline_by_stage: {
           title: '各阶段投递',
@@ -1185,7 +1193,7 @@ export const zhCN: TranslationData = {
   datasets: {
     ats_application_metrics: {
       label: '投递指标',
-      description: '按阶段、来源与投递周统计的投递。用组件筛选切片；一个计数度量。',
+      description: '按阶段、来源与投递周统计的投递。用组件筛选切片；一个计数度量与平均到 Offer 天数。',
       dimensions: {
         stage: {
           label: '阶段',
@@ -1200,6 +1208,9 @@ export const zhCN: TranslationData = {
       measures: {
         application_count: {
           label: '投递数',
+        },
+        avg_days_to_offer: {
+          label: '平均到 Offer 天数',
         },
       },
     },

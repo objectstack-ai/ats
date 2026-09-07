@@ -104,6 +104,10 @@ export const en: TranslationData = {
         last_activity_at: {
           label: 'Last Activity',
         },
+        days_to_offer: {
+          label: 'Days to Offer',
+          help: 'Whole days from applying to the first offer on this application. Stamped when that offer is inserted; not editable and not recomputed.',
+        },
         interview_count: {
           label: 'Interviews',
         },
@@ -1107,7 +1111,7 @@ export const en: TranslationData = {
   dashboards: {
     ats_employer_hiring: {
       label: 'Hiring Overview',
-      description: 'Your open jobs, applications awaiting action, interviews this week and the pipeline by stage.',
+      description: 'Your open jobs, applications awaiting action, interviews this week, average days to offer and the pipeline by stage.',
       widgets: {
         open_jobs: {
           title: 'Open Jobs',
@@ -1120,6 +1124,10 @@ export const en: TranslationData = {
         interviews_this_week: {
           title: 'Interviews This Week',
           description: 'Rounds scheduled Monday to Sunday, cancelled ones excluded.',
+        },
+        avg_days_to_offer: {
+          title: 'Average Days to Offer',
+          description: 'Applied to first offer, over your hired applications.',
         },
         pipeline_by_stage: {
           title: 'Pipeline by Stage',
@@ -1186,7 +1194,7 @@ export const en: TranslationData = {
   datasets: {
     ats_application_metrics: {
       label: 'Application Metrics',
-      description: 'Applications by stage, source and week applied. Slice with a widget filter; one count measure.',
+      description: 'Applications by stage, source and week applied. Slice with a widget filter; a count and the average days to offer.',
       dimensions: {
         stage: {
           label: 'Stage',
@@ -1201,6 +1209,9 @@ export const en: TranslationData = {
       measures: {
         application_count: {
           label: 'Applications',
+        },
+        avg_days_to_offer: {
+          label: 'Avg Days to Offer',
         },
       },
     },

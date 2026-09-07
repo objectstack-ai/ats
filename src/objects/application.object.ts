@@ -95,6 +95,24 @@ export const Application = ObjectSchema.create({
     }),
     last_activity_at: Field.datetime({ label: 'Last Activity' }),
 
+    /**
+     * Days from `applied_at` to the FIRST offer's `created_at` — stamped once,
+     * by the `afterInsert` hook on `ats_offer`, and never recomputed.
+     *
+     * It is a stored column because it has to be: a dataset measure aggregates
+     * ONE column of ONE object, and this duration spans two objects. Averaging
+     * it is what the employer dashboard's "Average Days to Offer" tile does.
+     * A later offer on the same application does not move it — the metric is
+     * time to FIRST offer, and re-deriving it would make the tile drift every
+     * time an offer is re-issued.
+     */
+    days_to_offer: Field.number({
+      label: 'Days to Offer',
+      min: 0,
+      readonly: true,
+      description: 'Whole days from applying to the first offer on this application. Stamped when that offer is inserted; not editable and not recomputed.',
+    }),
+
     /** Roll-up: how many interview rounds this application has accumulated. */
     interview_count: Field.summary({
       label: 'Interviews',
