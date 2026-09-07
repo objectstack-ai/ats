@@ -86,11 +86,17 @@ permission set (DESIGN.md §04).
 > personas are unaffected. Cause and evidence: [#39](https://github.com/objectstack-ai/ats/issues/39)
 > (upstream [objectstack#16589](https://github.com/objectstack-ai/objectstack/issues/16589)).
 >
-> One other known gap, with the measurement in the issue:
+> Two other known gaps, both with the measurement in the issue:
 > [#45](https://github.com/objectstack-ai/ats/issues/45) — an employer administrator cannot yet
 > *create* a job (blocked upstream on
 > [objectstack#16607](https://github.com/objectstack-ai/objectstack/issues/16607) and
-> [#16608](https://github.com/objectstack-ai/objectstack/issues/16608)).
+> [#16608](https://github.com/objectstack-ai/objectstack/issues/16608));
+> [#56](https://github.com/objectstack-ai/ats/issues/56) — the two scheduled reminders (credential
+> expiry, interview T-24h) select, mark and de-duplicate correctly but **deliver nothing** on the
+> cron path, because a scheduled run carries no organization and the inbox write is refused on a
+> multi-organization install (upstream
+> [objectstack#16659](https://github.com/objectstack-ai/objectstack/issues/16659)). The
+> stage-change notification (F4) is unaffected — it runs from a user session and does deliver.
 
 Every metadata change is gated:
 
