@@ -22,6 +22,7 @@ import {
   JobSeekerSet,
   registerAtsPositionBindings,
   AtsRlsMembershipResolverPlugin,
+  AtsAuthMembershipPolicyPlugin,
 } from './src/security/index.js';
 
 /**
@@ -125,10 +126,17 @@ export default defineStack({
   // runs, so only a plugin's `init()` (Phase 1) lands the service in time.
   // In-repo code, no new package (see rls-membership-resolver.ts).
   //
+  // The membership-policy plugin declares `membershipPolicy: 'invite-only'` on
+  // the live AuthManager, also in `init()` and for the same phase reason: the
+  // ADR-0093 D6 backfill runs at `kernel:ready`/`app:seeded`, and on the
+  // platform default (`auto`) it binds every member-less user — the 80 seekers
+  // and 2 platform staff — to the Default Organization, which DESIGN.md §03
+  // forbids (#38; see auth-membership-policy.ts).
+  //
   // The demo-seed gate plugin only logs: one line per boot saying whether the
   // demo seed (and its 7 logins) loads under this NODE_ENV, and what toggles
   // it — warn when skipped, because the CLI's default log level hides info.
-  plugins: [AtsRlsMembershipResolverPlugin, AtsDemoSeedGatePlugin],
+  plugins: [AtsRlsMembershipResolverPlugin, AtsAuthMembershipPolicyPlugin, AtsDemoSeedGatePlugin],
 });
 
 /**

@@ -1,0 +1,95 @@
+# Membership backfill before / after — driver: memory, port 4621, ats @ cdbadc4 (#38)
+# BEFORE = the same worktree with AtsAuthMembershipPolicyPlugin removed from objectstack.config.ts
+#          plugins: [] (ablation, restored byte-identically afterwards); AFTER = as committed.
+
+## BEFORE — boot log, the backfill line
+2026-09-07T19:49:29.397Z INFO [auth] membership backfill (app:seeded) bound 82 member-less user(s) to the default organization (ADR-0093 D6) {"scanned":113,"bound":82,"skipped":31}
+
+## AFTER — boot log, every line mentioning the policy or the backfill
+2026-09-07T19:50:24.397Z INFO [ats] auth membership policy declared 'invite-only' (was 'auto') in init() — DESIGN.md §03: sign-up and the ADR-0093 D6 backfill bind nobody to the default organization. An explicit auth.membership_policy setting or OS_AUTH_MEMBERSHIP_POLICY still overrides this at kernel:ready.
+(the ADR-0093 D6 backfill logs only when bound > 0 — plugin-auth/src/auth-plugin.ts;
+ the absence of the line IS the 0-bound reading, and the ablation above is its control)
+
+## BEFORE — read as the platform owner
+## sign-in owner: HTTP 200
+sys_member: total=113 hasMore=false len=113 consistent=true
+sys_member per organization:
+  org_mtrnmk8eefixzedy         83
+  org_ats_quillstone           3
+  org_ats_harborline           3
+  org_ats_cedarbrook           3
+  org_ats_brightmarket         3
+  org_ats_lumenvale            3
+  org_ats_summitridge          3
+  org_ats_swiftroute           2
+  org_ats_bluewater            2
+  org_ats_ironbridge           2
+  org_ats_pixelforge           2
+  org_ats_meridian             2
+  org_ats_orbit                2
+sys_organization: total=13 hasMore=false len=13 consistent=true
+organizations: org_ats_quillstone(Quillstone Robotics), org_ats_harborline(Harborline Manufacturing), org_ats_cedarbrook(Cedarbrook Care Network), org_ats_brightmarket(Brightmarket Retail Group), org_ats_lumenvale(Lumenvale Academy), org_ats_summitridge(Summitridge Financial), org_ats_swiftroute(Swiftroute Logistics), org_ats_bluewater(Bluewater Hospitality Group), org_ats_ironbridge(Ironbridge Construction), org_ats_pixelforge(Pixelforge Studios), org_ats_meridian(Meridian Clinics), org_ats_orbit(Orbit Consulting Partners), org_mtrnmk8eefixzedy(Default Organization)
+sys_user: total=113 hasMore=false len=113 consistent=true
+
+## per-persona reads (total / hasMore / len)
+persona                employer employer_member    interview        offer          job  application    candidate      inquiry
+owner                       12           30           40           23           40          200           80            8
+                  activeOrganizationId="org_mtrnmk8eefixzedy" userId=usr_ats_0_owner
+platform-admin              12           30           40           23           40          200           80            8
+                  activeOrganizationId="org_mtrnmk8eefixzedy" userId=usr_ats_platform_admin
+platform-ops                12           30           40           23           40          200           80            8
+                  activeOrganizationId="org_mtrnmk8eefixzedy" userId=usr_ats_platform_ops
+quillstone-admin             1            3           10            3            5           27           70            2
+                  activeOrganizationId="org_ats_quillstone" userId=usr_ats_quillstone_admin
+quillstone-rec               1            3           10            3            5           27           70            2
+                  activeOrganizationId="org_ats_quillstone" userId=usr_ats_quillstone_r1
+harborline-admin             1            3            6            4            5           31           69            2
+                  activeOrganizationId="org_ats_harborline" userId=usr_ats_harborline_admin
+seeker-01                    9          ERR            0            1           22            1            1          ERR
+                  activeOrganizationId="org_mtrnmk8eefixzedy" userId=usr_ats_c01
+                  ! ats_employer_member: HTTP 403 {"error":"You do not have permission to perform this action. Contact your administrator if you need access.","code":"PERMISSION_DENIED","object":"ats_employer_member"}
+                  ! ats_inquiry: HTTP 403 {"error":"You do not have permission to perform this action. Contact your administrator if you need access.","code":"PERMISSION_DENIED","object":"ats_inquiry"}
+
+# end
+
+## AFTER — read as the platform owner
+## sign-in owner: HTTP 200
+sys_member: total=31 hasMore=false len=31 consistent=true
+sys_member per organization:
+  org_ats_quillstone           3
+  org_ats_harborline           3
+  org_ats_cedarbrook           3
+  org_ats_brightmarket         3
+  org_ats_lumenvale            3
+  org_ats_summitridge          3
+  org_ats_swiftroute           2
+  org_ats_bluewater            2
+  org_ats_ironbridge           2
+  org_ats_pixelforge           2
+  org_ats_meridian             2
+  org_ats_orbit                2
+  org_mtrnnrr350qhbok2         1
+sys_organization: total=13 hasMore=false len=13 consistent=true
+organizations: org_ats_quillstone(Quillstone Robotics), org_ats_harborline(Harborline Manufacturing), org_ats_cedarbrook(Cedarbrook Care Network), org_ats_brightmarket(Brightmarket Retail Group), org_ats_lumenvale(Lumenvale Academy), org_ats_summitridge(Summitridge Financial), org_ats_swiftroute(Swiftroute Logistics), org_ats_bluewater(Bluewater Hospitality Group), org_ats_ironbridge(Ironbridge Construction), org_ats_pixelforge(Pixelforge Studios), org_ats_meridian(Meridian Clinics), org_ats_orbit(Orbit Consulting Partners), org_mtrnnrr350qhbok2(Default Organization)
+sys_user: total=113 hasMore=false len=113 consistent=true
+
+## per-persona reads (total / hasMore / len)
+persona                employer employer_member    interview        offer          job  application    candidate      inquiry
+owner                       12           30           40           23           40          200           80            8
+                  activeOrganizationId="org_mtrnnrr350qhbok2" userId=usr_ats_0_owner
+platform-admin              12           30           40           23           40          200           80            8
+                  activeOrganizationId=null userId=usr_ats_platform_admin
+platform-ops                12           30           40           23           40          200           80            8
+                  activeOrganizationId=null userId=usr_ats_platform_ops
+quillstone-admin             1            3           10            3            5           27           70            2
+                  activeOrganizationId="org_ats_quillstone" userId=usr_ats_quillstone_admin
+quillstone-rec               1            3           10            3            5           27           70            2
+                  activeOrganizationId="org_ats_quillstone" userId=usr_ats_quillstone_r1
+harborline-admin             1            3            6            4            5           31           69            2
+                  activeOrganizationId="org_ats_harborline" userId=usr_ats_harborline_admin
+seeker-01                    9          ERR            0            1           22            1            1          ERR
+                  activeOrganizationId=null userId=usr_ats_c01
+                  ! ats_employer_member: HTTP 403 {"error":"You do not have permission to perform this action. Contact your administrator if you need access.","code":"PERMISSION_DENIED","object":"ats_employer_member"}
+                  ! ats_inquiry: HTTP 403 {"error":"You do not have permission to perform this action. Contact your administrator if you need access.","code":"PERMISSION_DENIED","object":"ats_inquiry"}
+
+# end
