@@ -17,6 +17,8 @@ export const staffUserId = (slug: string, who: 'admin' | 'r1' | 'r2'): string =>
 export const candidateEmail = (index: number): string => `candidate${pad2(index + 1)}@mail.example`;
 export const candidateUserId = (index: number): string => `usr_ats_c${pad2(index + 1)}`;
 export const candidateKey = (index: number): string => pad2(index + 1);
+/** A public-form applicant who has no candidate row yet (`INQUIRIES`, kind `new`). */
+export const applicantEmail = (index: number): string => `applicant${pad2(index + 1)}@mail.example`;
 
 export const PLATFORM_OPS = { id: 'usr_ats_platform_ops', email: 'ops@platform.example' } as const;
 export const PLATFORM_ADMIN = { id: 'usr_ats_platform_admin', email: 'admin@platform.example' } as const;

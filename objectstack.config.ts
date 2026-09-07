@@ -4,6 +4,7 @@ import { data, AtsDemoSeedGatePlugin } from './src/data/index.js';
 import * as views from './src/views/index.js';
 import { allHooks } from './src/hooks/index.js';
 import * as flows from './src/flows/index.js';
+import * as actions from './src/actions/index.js';
 import { AtsApp } from './src/apps/index.js';
 import {
   PlatformAdminPosition,
@@ -16,7 +17,6 @@ import {
   EmployerAdminSet,
   EmployerRecruiterSet,
   JobSeekerSet,
-  GuestApplySet,
   registerAtsPositionBindings,
   AtsRlsMembershipResolverPlugin,
 } from './src/security/index.js';
@@ -66,6 +66,10 @@ export default defineStack({
   // Automation — the approval chains F1–F3 (DESIGN.md §05).
   flows: Object.values(flows),
 
+  // Actions — inquiry triage (convert / reject / spam, declarative single-row
+  // updates written AS THE CALLER) and the job page's public apply link.
+  actions: Object.values(actions),
+
   // The one app: three audience groups (Platform · Hiring · Job Seeker), each
   // gated by a capability the permission sets grant (DESIGN.md §04). An
   // 'app' package may define at most one app (ADR-0019 D3).
@@ -85,7 +89,9 @@ export default defineStack({
     EmployerAdminSet,
     EmployerRecruiterSet,
     JobSeekerSet,
-    GuestApplySet,
+    // No guest set: the anonymous public form is authorised by the
+    // route-derived `publicFormGrant`, not by a permission set (#32; see the
+    // header of permission-sets.ts).
   ],
 
   // Runtime — the app-owned RLS membership resolver that makes the employer

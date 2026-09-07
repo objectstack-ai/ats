@@ -228,6 +228,18 @@ export const pack: LocalePack = {
     { subject: '像素熔炉工作室的资质文件看起来不完整', description: '上传的登记材料似乎是草稿。' },
   ],
 
+  // 与 INQUIRIES 对齐：第 1、3、7 行是已入库的候选人（此处不写姓名）。
+  inquiries: [
+    { name: '周子墨', coverLetter: '曾为两代取放机械臂交付运动规划代码，希望把这套经验用到协作机器人上。' },
+    { coverLetter: '目前在客户现场维护工业设备，持有效叉车证，可以接受区域内出差。' },
+    { name: '陈昊宇', coverLetter: '六年五轴加工中心经验，以铝合金与不锈钢壳体为主，能看图独立编程。' },
+    { coverLetter: '现在负责一条与贵司类似的冲压件产线的检验，有三坐标与量具 R&R 经验。' },
+    { name: '吴梓萱', coverLetter: '注册护士，四年内外科病房经验，其中两年固定夜班。' },
+    { name: '郑博文', coverLetter: '目前经营一家三十人的社区门店，希望接手更大的业态并带团队成长。' },
+    { name: '许若彤', coverLetter: '中型企业信贷分析师，擅长评分卡监控与契约条款跟踪。' },
+    { coverLetter: '目前带领十二人的夜班入库团队，希望找一份离家更近的白班岗位。' },
+  ],
+
   interviewLocations: {
     onsite: '{city}办公室 {room} 号会议室',
     video: 'https://meet.example',

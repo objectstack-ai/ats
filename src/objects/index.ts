@@ -16,3 +16,7 @@ export { Application } from './application.object.js';
 export { Interview } from './interview.object.js';
 export { Offer } from './offer.object.js';
 export { Report } from './report.object.js';
+
+// The public application entry — the quarantine row an anonymous applicant
+// writes to, converted into a candidate + application by staff (DESIGN.md §04).
+export { Inquiry } from './inquiry.object.js';

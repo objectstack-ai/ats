@@ -52,9 +52,9 @@ or `NODE_ENV=production` none of these rows is created and every sign-in below a
 
 | Boot | `NODE_ENV` the CLI pins | Demo rows | These logins |
 |---|---|---|---|
-| `pnpm dev` · `objectstack dev` | `development` (when unset) | 801 seeded | work |
+| `pnpm dev` · `objectstack dev` | `development` (when unset) | 809 seeded | work |
 | `objectstack start` · `objectstack serve` | `production` (when unset) | none | do not exist |
-| `NODE_ENV=development objectstack start` | as exported | 801 seeded | work — deliberate opt-in |
+| `NODE_ENV=development objectstack start` | as exported | 809 seeded | work — deliberate opt-in |
 
 | Sign in as | Password | Who | Sees |
 |---|---|---|---|
@@ -66,8 +66,19 @@ or `NODE_ENV=production` none of these rows is created and every sign-in below a
 | `admin@harborline.example` | `demo1234` | Employer administrator, Harborline | **Hiring** group |
 | `candidate01@mail.example` | `demo1234` | Job seeker | **Job Seeker** group |
 
-Employer isolation works: signed in as Quillstone you see 5 jobs, 27 applications, 2 offers and
-3 team members; as Harborline, 5 / 31 / 2 / 3 — and neither sees a single row of the other's.
+Employer isolation works: signed in as Quillstone you see 5 jobs, 27 applications, 2 offers,
+3 team members and 2 inquiries; as Harborline, 5 / 31 / 2 / 3 / 2 — and neither sees a single row of
+the other's.
+
+### The public application form
+
+Anyone — no account, no cookie — can apply to a published job at
+`/_console/f/apply?prefill_job=JOB_ID` (open a published job and use **Public Apply Link**), or by
+`POST /api/v1/forms/apply/submit`. The submission lands in `ats_inquiry`, a quarantine object nobody
+browses; the platform or the employer that owns the job converts it (**Convert to Application** on the
+inquiry) into a candidate and an application — a repeat inquiry from the same e-mail attaches to the
+existing candidate. The anonymous write is authorised by the form declaration itself, not by a guest
+permission set (DESIGN.md §04).
 
 > **Run the demo on `--database-driver memory`.** On the default driver the four tenancy-scoped
 > objects (`ats_employer`, `ats_employer_member`, `ats_interview`, `ats_offer`) return no rows to

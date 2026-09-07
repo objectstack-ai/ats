@@ -15,6 +15,7 @@ import { ApplicationSeed } from './application.seed.js';
 import { InterviewSeed } from './interview.seed.js';
 import { OfferSeed } from './offer.seed.js';
 import { ReportSeed } from './report.seed.js';
+import { InquirySeed } from './inquiry.seed.js';
 
 /** Parents before children: the loader also sorts by the reference graph, but an explicit order is the readable contract. */
 export const seeds: Seed[] = [
@@ -39,4 +40,6 @@ export const seeds: Seed[] = [
   InterviewSeed,
   OfferSeed,
   ReportSeed,
+  // The public application entry's queue — after jobs (it references them).
+  InquirySeed,
 ];

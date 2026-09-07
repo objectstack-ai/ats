@@ -8,3 +8,5 @@ export { EmployerViews } from './employer.view.js';
 export { ReportViews } from './report.view.js';
 export { SkillViews } from './skill.view.js';
 export { CredentialTypeViews } from './credential-type.view.js';
+// The public application form and the inquiry queue it feeds (#37).
+export { InquiryViews } from './inquiry.view.js';

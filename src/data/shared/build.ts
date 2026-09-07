@@ -36,6 +36,7 @@ import { Application } from '../../objects/application.object.js';
 import { Interview } from '../../objects/interview.object.js';
 import { Offer } from '../../objects/offer.object.js';
 import { Report } from '../../objects/report.object.js';
+import { Inquiry } from '../../objects/inquiry.object.js';
 
 import { SysAccount, SysMember, SysOrganization, SysUser, SysUserPosition } from './sys-objects.js';
 import { EmployerAdminPosition, EmployerRecruiterPosition, JobSeekerPosition } from '../../security/positions.js';
@@ -43,6 +44,7 @@ import {
   PLATFORM_ADMIN,
   PLATFORM_OPS,
   adminEmail,
+  applicantEmail,
   candidateEmail,
   candidateKey,
   candidateUserId,
@@ -63,7 +65,7 @@ import {
   type Reporter,
   type ReportTarget,
 } from './skeleton.js';
-import { APPLICATIONS, CANDIDATES, INTERVIEWS, OFFERS, type ApplicationRow } from './pipeline.js';
+import { APPLICATIONS, CANDIDATES, INQUIRIES, INTERVIEWS, OFFERS, type ApplicationRow } from './pipeline.js';
 import type { LocalePack } from './pack.js';
 
 /** The record shape `defineSeed(objectDef, …)` accepts for one object — field keys checked at compile time. */
@@ -500,6 +502,35 @@ export function buildOffers(pack: LocalePack): TenantScopedSeedRecordOf<typeof O
       ...(approved ? { approved_by: adminEmail(e.slug) } : {}),
       expires_at: daysFromNow(o.expiresInDays),
       notes: pack.offerNote,
+    };
+  });
+}
+
+/**
+ * `ats_inquiry` — public-form applications waiting in the queue (#37). All
+ * `new`: conversion is a runtime act (the `beforeUpdate` hook), never seeded.
+ * The stamps a live submit gets from the hook — `display_name`, `employer`,
+ * `employer_org`, `submitted_at` — are written explicitly, like every other
+ * seed here; a seeded candidate's inquiry reuses their name, e-mail and phone
+ * so converting it demonstrably attaches to the existing row.
+ */
+export function buildInquiries(pack: LocalePack): SeedRecordOf<typeof Inquiry>[] {
+  return INQUIRIES.map((q, i) => {
+    const t = pack.inquiries[i]!;
+    const { index: employerIndex, row: e } = employerOf(q.job);
+    const fromCandidate = q.applicant.kind === 'candidate';
+    const who = fromCandidate ? candidateName(pack, q.applicant.index) : (t.name ?? '');
+    return {
+      display_name: `${who} → ${jobTitle(pack, q.job)}`,
+      job: jobTitle(pack, q.job),
+      employer: employerName(pack, employerIndex),
+      employer_org: orgId(e.slug),
+      full_name: who,
+      email: fromCandidate ? candidateEmail(q.applicant.index) : applicantEmail(q.applicant.index),
+      phone: phoneFor(pack, fromCandidate ? q.applicant.index : 900 + q.applicant.index),
+      cover_letter: t.coverLetter,
+      status: 'new',
+      submitted_at: daysAgo(q.submittedDaysAgo),
     };
   });
 }

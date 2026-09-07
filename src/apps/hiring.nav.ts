@@ -8,13 +8,16 @@ import type { NavigationItemInput } from '@objectstack/spec/ui';
  * is the permission set's row-level rule, never a navigation filter.
  *
  * The inbox is five grids over `ats_application`, one per working stage; the
- * board and the calendar are the same object seen two other ways. The talent
+ * board and the calendar are the same object seen two other ways. Inquiries
+ * — anonymous applications from the public form, not yet converted — sit
+ * above it: an employer sees the ones for its own jobs (`employer_org`). The talent
  * pool entry lands on the filterable grid; the gallery is one view-switch away
  * on the same surface. The dashboard joins with card 13.
  */
 export const HiringNavigation: NavigationItemInput[] = [
   { id: 'nav_hiring_jobs',     type: 'object', label: 'Jobs',     icon: 'briefcase', objectName: 'ats_job',         viewName: 'mine' },
   { id: 'nav_hiring_pipeline', type: 'object', label: 'Pipeline', icon: 'kanban',    objectName: 'ats_application', viewName: 'pipeline' },
+  { id: 'nav_hiring_inquiries', type: 'object', label: 'Inquiries', icon: 'mail-plus', objectName: 'ats_inquiry',     viewName: 'inbox' },
   {
     id: 'grp_hiring_inbox',
     type: 'group',
