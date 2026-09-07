@@ -26,7 +26,7 @@ import { createDemoSeedGatePlugin, scopeToDemo } from './demo-seed-gate.js';
  * ## Demo only — never production (#42)
  *
  * Whichever set is selected is scoped `env: ['dev', 'test']` by
- * `scopeToDemo`, so the seed loader drops all of it — the 794 ATS/identity
+ * `scopeToDemo`, so the seed loader drops all of it — the 811 ATS/identity
  * rows AND the 7 `sys_account` logins whose passwords are in the README — on
  * any boot whose `NODE_ENV` resolves to production. `objectstack dev` sets
  * `NODE_ENV=development` and seeds; `objectstack start`/`serve` set

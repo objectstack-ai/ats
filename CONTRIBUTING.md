@@ -62,7 +62,7 @@ gap; finding one is the finding.
 
 **Measure, do not assert.** This repository's review culture is that a claim in a PR body comes with the
 command that produced it and the number it produced. "It works" is not a sentence in a PR here; "the
-Quillstone admin reads 5 jobs / 27 applications / 2 offers and 0 of Harborline's" is. Several cards have
+Quillstone admin reads 5 jobs / 27 applications / 3 offers and 0 of Harborline's" is. Several cards have
 been overturned by their own developer measuring the premise — that is the standard, not the exception.
 
 ## Rules that are easy to break

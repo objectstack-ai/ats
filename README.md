@@ -15,7 +15,7 @@ pnpm dev          # REST + Console on http://localhost:3000/_console/ — sign i
 ```
 
 There is **no hosted demo yet** — nothing is deployed, so there is no link to give you; the three commands
-above are the way to try it, and they boot the 809-row demo seed (the fresh-clone timing is measured in
+above are the way to try it, and they boot the 818-row demo seed (the fresh-clone timing is measured in
 the card-14 pull request, not asserted here). What you get is one app with three audiences, each seeing
 exactly the navigation group its position unlocks:
 
@@ -85,9 +85,9 @@ or `NODE_ENV=production` none of these rows is created and every sign-in below a
 
 | Boot | `NODE_ENV` the CLI pins | Demo rows | These logins |
 |---|---|---|---|
-| `pnpm dev` · `objectstack dev` | `development` (when unset) | 809 seeded | work |
+| `pnpm dev` · `objectstack dev` | `development` (when unset) | 818 seeded | work |
 | `objectstack start` · `objectstack serve` | `production` (when unset) | none | do not exist |
-| `NODE_ENV=development objectstack start` | as exported | 809 seeded | work — deliberate opt-in |
+| `NODE_ENV=development objectstack start` | as exported | 818 seeded | work — deliberate opt-in |
 
 | Sign in as | Password | Who | Sees |
 |---|---|---|---|
@@ -99,8 +99,8 @@ or `NODE_ENV=production` none of these rows is created and every sign-in below a
 | `admin@harborline.example` | `demo1234` | Employer administrator, Harborline | **Hiring** group |
 | `candidate01@mail.example` | `demo1234` | Job seeker | **Job Seeker** group |
 
-Employer isolation works: signed in as Quillstone you see 5 jobs, 27 applications, 2 offers,
-3 team members and 2 inquiries; as Harborline, 5 / 31 / 2 / 3 / 2 — and neither sees a single row of
+Employer isolation works: signed in as Quillstone you see 5 jobs, 27 applications, 3 offers,
+3 team members and 2 inquiries; as Harborline, 5 / 31 / 4 / 3 / 2 — and neither sees a single row of
 the other's.
 
 ### The public application form

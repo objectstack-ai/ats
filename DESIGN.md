@@ -315,7 +315,7 @@ record.id in current_user.applicant_candidate_ids       本机构申请人
 | ats_candidate | 80 | 带头像；经验与技能有梯度 |
 | ats_application | 200 | 按漏斗铺：applied 88 · screening 46 · interview 28 · offer 14 · hired 9 · rejected 15 |
 | ats_interview | 40 | **未来两周内**有排期 |
-| ats_offer | 14 | 3 条 `pending_approval` |
+| ats_offer | 23 | 14 条挂在 offer 阶段的投递上（3 条 `pending_approval`）· 9 条 `accepted`，每个 hired 投递恰一条（#53） |
 | ats_inquiry | 8 | 全部 `new`；5 位无候选人行的投递者、3 位已入库候选人（转换后挂到既有行）；2 条 Quillstone、2 条 Harborline |
 | ats_skill / ats_credential_type | 60 / 15 | 字典先行 |
 

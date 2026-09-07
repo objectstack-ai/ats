@@ -8,6 +8,9 @@ OS_PLATFORM_OWNER_EMAIL=admin@objectos.ai npx objectstack dev --fresh --database
 
 **every shot on the memory driver**, after the boot log's
 `[Seeder] Seed loading complete {"inserted":809,…,"errored":0}`, in a headless Chromium at 1440 × 900.
+The seed has since grown to 818 rows — #53 added one `accepted` `ats_offer` per hired application, nothing
+else — so a boot today logs `{"inserted":818,…}`; no screen below reads `ats_offer`, and the stage counts the
+shots show (88 / 46 / 28 / 14 / 9 marketplace-wide, 10 / 8 / 5 / 2 / 1 for Quillstone) did not move.
 The driver matters: on the default (sqlite) driver the four tenancy-scoped objects return no rows to the
 platform personas ([#39](https://github.com/objectstack-ai/ats/issues/39)), so the Platform group's review
 queues photograph empty there. The demo logins are in the [README](../../README.md#demo-logins); the

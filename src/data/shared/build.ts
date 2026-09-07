@@ -108,6 +108,8 @@ export {
 
 const daysAgo = (n: number) => cel`daysAgo(${n})`;
 const daysFromNow = (n: number) => cel`daysFromNow(${n})`;
+/** A signed calendar offset: `n` days ahead, or `-n` days ago — for rows whose dates straddle seed time (accepted offers). */
+const dayOffset = (n: number) => (n < 0 ? daysAgo(-n) : daysFromNow(n));
 /** A calendar day from seed time at a wall-clock hour: the calendar helpers land on UTC midnight, so add a duration. */
 const dayAt = (day: number, hour: number, minute: number) =>
   cel`daysFromNow(${day}) + duration(${minute > 0 ? `${hour}h${minute}m` : `${hour}h`})`;
@@ -487,7 +489,9 @@ export function buildOffers(pack: LocalePack): TenantScopedSeedRecordOf<typeof O
     const { index: employerIndex, row: e } = employerOf(a.job);
     const name = applicationName(pack, a);
     const salary = Math.round((job.salaryMin + job.salaryMax) / 2 / 10) * 10;
-    const approved = o.status === 'approved' || o.status === 'sent' || o.status === 'declined';
+    // Everything past internal approval carries the approver — an accepted
+    // offer was approved, sent and then accepted (DESIGN.md §02 state machine).
+    const approved = o.status === 'approved' || o.status === 'sent' || o.status === 'accepted' || o.status === 'declined';
     return {
       display_name: `Offer · ${name}`,
       application: name,
@@ -497,10 +501,10 @@ export function buildOffers(pack: LocalePack): TenantScopedSeedRecordOf<typeof O
       candidate_user: candidateUserId(a.candidate),
       salary,
       salary_period: job.salaryPeriod,
-      start_date: daysFromNow(o.startInDays),
+      start_date: dayOffset(o.startInDays),
       status: o.status,
       ...(approved ? { approved_by: adminEmail(e.slug) } : {}),
-      expires_at: daysFromNow(o.expiresInDays),
+      expires_at: dayOffset(o.expiresInDays),
       notes: pack.offerNote,
     };
   });

@@ -28,7 +28,7 @@ Paste the three green tails into the PR body.
 
 ## Booting with the demo seed — read before you count rows
 
-The demo seed (`src/data/`, 801 rows incl. the 7 logins in `README.md`) is scoped `env: ['dev', 'test']`
+The demo seed (`src/data/`, 818 rows incl. the 7 logins in `README.md`) is scoped `env: ['dev', 'test']`
 and loads **only when the boot's `NODE_ENV` resolves to development or test**. The CLI pins it for you:
 
 ```bash
@@ -43,7 +43,7 @@ have checked the boot log for these lines**:
 
 | State | What the log says | Rows |
 |:--|:--|:--|
-| seeded | `INFO [ats] demo seed enabled: NODE_ENV=development …` then `[Seeder] Seed loading complete {"inserted":801,…,"errored":0}` | 80 `ats_candidate`, 7 sign-ins work |
+| seeded | `INFO [ats] demo seed enabled: NODE_ENV=development …` then `[Seeder] Seed loading complete {"inserted":818,…,"errored":0}` | 80 `ats_candidate`, 7 sign-ins work |
 | skipped | `WARN [ats] demo seed skipped: NODE_ENV=production …` (replayed under the banner at the default log level) and, at `--log-level info`, `[SeedLoader] Environment 'prod': skipped 16 dataset(s) …` | 0 everywhere, every persona answers `Invalid email or password` |
 
 If you exported `NODE_ENV=production` in your shell, `objectstack dev` keeps it and you get the skipped
