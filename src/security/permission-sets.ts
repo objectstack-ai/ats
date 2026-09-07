@@ -10,18 +10,25 @@ import { definePermissionSet } from '@objectstack/spec/security';
  * `employer_org` scalar, stamped on write, and the policies below compare it to
  * the caller's organization memberships:
  *
- *     employer_org IN (current_user.accessible_org_ids)
+ *     record.employer_org in current_user.employer_org_ids
  *
  * The indirection is forced, not stylistic: RLS predicates are canonical CEL
  * comparing a FIELD to a `current_user.*` placeholder, and cross-object
  * traversal is a compile error (ADR-0055) — "is the caller a member of this
  * row's employer" cannot be expressed by walking the lookup.
  *
- * `accessible_org_ids` (ADR-0105 D2) is the caller's whole org access set, not
- * the single active org, so a recruiter placed at two employers sees both
- * without switching context. An authenticated caller with no membership
- * resolves to the EMPTY set, which fails the policy closed — zero rows, never
- * fail-open.
+ * `employer_org_ids` is the caller's whole org access set — the kernel's
+ * `accessible_org_ids` (ADR-0105 D2), republished by the app-owned membership
+ * resolver in `rls-membership-resolver.ts`. It is not the single active org,
+ * so a recruiter placed at two employers sees both without switching context.
+ * An authenticated caller with no membership resolves to the EMPTY set, which
+ * fails the policy closed — zero rows, never fail-open.
+ *
+ * Why not `current_user.accessible_org_ids` directly: the RLS compiler never
+ * populates it, so a policy naming it reads an undefined variable, is dropped,
+ * and the request returns zero rows silently (objectstack#16518); and the key
+ * is reserved, so a resolver may not supply it. The resolver module carries
+ * the full account.
  *
  * ## Why the grants carry `readScope: 'org'`
  *
@@ -118,20 +125,20 @@ export const EmployerAdminSet = definePermissionSet({
   },
   rowLevelSecurity: [
     { name: 'employer_admin_employer',    object: 'ats_employer',        operation: 'all',
-      using: 'organization IN (current_user.accessible_org_ids)',
-      check: 'organization IN (current_user.accessible_org_ids)' },
+      using: 'record.organization in current_user.employer_org_ids',
+      check: 'record.organization in current_user.employer_org_ids' },
     { name: 'employer_admin_members',     object: 'ats_employer_member', operation: 'all',
-      using: 'employer_org IN (current_user.accessible_org_ids)',
-      check: 'employer_org IN (current_user.accessible_org_ids)' },
+      using: 'record.employer_org in current_user.employer_org_ids',
+      check: 'record.employer_org in current_user.employer_org_ids' },
     { name: 'employer_admin_jobs',        object: 'ats_job',             operation: 'all',
-      using: 'employer_org IN (current_user.accessible_org_ids)',
-      check: 'employer_org IN (current_user.accessible_org_ids)' },
+      using: 'record.employer_org in current_user.employer_org_ids',
+      check: 'record.employer_org in current_user.employer_org_ids' },
     { name: 'employer_admin_applications', object: 'ats_application',    operation: 'all',
-      using: 'employer_org IN (current_user.accessible_org_ids)',
-      check: 'employer_org IN (current_user.accessible_org_ids)' },
+      using: 'record.employer_org in current_user.employer_org_ids',
+      check: 'record.employer_org in current_user.employer_org_ids' },
     { name: 'employer_admin_offers',      object: 'ats_offer',           operation: 'all',
-      using: 'employer_org IN (current_user.accessible_org_ids)',
-      check: 'employer_org IN (current_user.accessible_org_ids)' },
+      using: 'record.employer_org in current_user.employer_org_ids',
+      check: 'record.employer_org in current_user.employer_org_ids' },
   ],
 });
 
@@ -168,18 +175,18 @@ export const EmployerRecruiterSet = definePermissionSet({
   },
   rowLevelSecurity: [
     { name: 'recruiter_employer',     object: 'ats_employer',        operation: 'select',
-      using: 'organization IN (current_user.accessible_org_ids)' },
+      using: 'record.organization in current_user.employer_org_ids' },
     { name: 'recruiter_members',      object: 'ats_employer_member', operation: 'select',
-      using: 'employer_org IN (current_user.accessible_org_ids)' },
+      using: 'record.employer_org in current_user.employer_org_ids' },
     { name: 'recruiter_jobs',         object: 'ats_job',             operation: 'all',
-      using: 'employer_org IN (current_user.accessible_org_ids)',
-      check: 'employer_org IN (current_user.accessible_org_ids)' },
+      using: 'record.employer_org in current_user.employer_org_ids',
+      check: 'record.employer_org in current_user.employer_org_ids' },
     { name: 'recruiter_applications', object: 'ats_application',     operation: 'all',
-      using: 'employer_org IN (current_user.accessible_org_ids)',
-      check: 'employer_org IN (current_user.accessible_org_ids)' },
+      using: 'record.employer_org in current_user.employer_org_ids',
+      check: 'record.employer_org in current_user.employer_org_ids' },
     { name: 'recruiter_offers',       object: 'ats_offer',           operation: 'all',
-      using: 'employer_org IN (current_user.accessible_org_ids)',
-      check: 'employer_org IN (current_user.accessible_org_ids)' },
+      using: 'record.employer_org in current_user.employer_org_ids',
+      check: 'record.employer_org in current_user.employer_org_ids' },
   ],
 });
 
