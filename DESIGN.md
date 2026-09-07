@@ -89,11 +89,73 @@ ats_job        [public_read] ats_offer      [private]    ats_skill              
 
 **为什么用 `accessible_org_ids` 而不是 `organization_id`**：前者是调用者的**全部**组织成员集（ADR-0105 D2），一个服务两家雇主的招聘顾问无需切换上下文即可同时看到两边；无有效成员资格解析为空集，谓词 fail-closed 到零行，绝不 fail-open。
 
-**为什么对象不开 `tenancy: { enabled: true }`**：那道 Layer 0 墙是绝对的、按组织相等判定的，会连带把求职者**自己的投递**也挡住 —— 求职者不是雇主组织的成员。业务 RLS 允许两类受众对同一批行各带各的策略，这才是 marketplace 的形状。
+**为什么当时判断「对象不开 `tenancy`」**：那道 Layer 0 墙按组织判定，会连带把求职者**自己的投递**也挡住 —— 求职者不是任何雇主组织的成员。业务 RLS 允许两类受众对同一批行各带各的策略，这才是 marketplace 的形状。
+
+> ⚠️ **这句话在 2026-09-07 被修订为「按对象划分」，不再是「全都不开」。** 见下方《租户墙划分契约》—— Layer 0 墙对 `tenancy: { enabled: false }` 的对象**有豁免**，所以正确做法是分类，不是一刀切。
 
 **组合顺序（关键）**：OWD `private` 定基线 → `readScope: 'org'` 把 owner 匹配放宽到组织范围 → RLS 收窄到真正的雇主。只给 `allowRead` 不给 `readScope`，招聘专员将只能看到自己创建的记录 —— 那不是 marketplace，是一堆私人收件箱。
 
 **遗留的运维前提**：雇主入驻时需创建对应 organization 并把员工加为成员（`sys_organization` / `sys_member`）。M1 由种子数据承担，正式流程挂在 F1 机构资质审核通过之后 —— 已记入卡 11。
+
+### ⚠️ 现状：`accessible_org_ids` 在 RLS 里解析不出来（2026-09-07）
+
+**上面这套雇主侧谓词今天是失效的。**平台的 `RLSUserContext`（`plugin-security/src/rls-compiler.ts:43`）只声明
+`id` / `organization_id` / `positions` / `org_user_ids` / `email`，**从不把 `accessible_org_ids` 填进去**；
+而它又在 `RESERVED_RLS_MEMBERSHIP_KEYS` 里，应用侧的 membership resolver 被禁止提供它
+（ADR-0105 D11 的原话是「core-resolved, not an app resolver」）。
+
+变量解析不出 → 策略被丢弃 → `RLS_DENY_FILTER` → **静默返回零行，不报错**。
+
+后果：`permission-sets.ts` 里**每一条**雇主侧策略对非平台角色都 fail-closed。平台角色不受影响，
+因为它们持 `viewAllRecords`（读旁路）。已上报 [objectstack#16518](https://github.com/objectstack-ai/objectstack/issues/16518)，
+本仓库跟踪于 #18。**改 CEL 拼写修不好它** —— 规范写法和 SQL 桥接写法都一样解析不出。
+
+在它解决前：雇主侧的隔离是**已声明未生效**状态，任何以雇主身份的演示都会看到空列表。
+
+### 租户墙划分契约（2026-09-07 裁决）
+
+平台的单库多租户是**按企业 SaaS 设计的**：租户 = 组织，进去只看自己的数据。
+市场型应用比它多两样东西 —— 一个跨墙可读的公共面（岗位），和**联合归属**的记录（一条申请同时属于求职者和雇主）。
+
+Layer 0 墙不是全有全无的。`plugin-security/src/security-plugin.ts:2940` 明确列出豁免：
+`tenancy.enabled:false` 的平台全局对象、没有 `organization_id` 列的对象、平台管理员、以及整个 `single` posture，
+**在墙这一层全部产出 `null`，不受影响**。所以正确形态是按对象划分：
+
+| 分类 | 对象 | 隔离由谁承担 |
+|---|---|---|
+| **进墙**（`tenancy` 开启） | `ats_employer` · `ats_employer_member` · `ats_interview` · `ats_offer` | Layer 0 引擎级墙 + RLS |
+| **平台全局**（`tenancy: { enabled: false }`） | `ats_candidate` · `ats_candidate_credential` · `ats_skill` · `ats_credential_type` · `ats_report` | 仅 RLS |
+| **平台全局 · 联合归属** | `ats_application` · `ats_job` | 仅 RLS：雇主侧按 `employer_org`，求职者侧按 `candidate_user` / 本人 |
+
+`ats_application` 是唯一需要论证的一格：它同时属于求职者和雇主，而企业 SaaS 租户模型假设「每行恰好属于一个租户」。
+让它出墙、隔离交给 Layer 1，是唯一能同时满足两侧的方案。
+
+**这个划分是前向兼容的契约，不只是当下的权宜：**
+
+- **今天（`single` posture，墙惰性）** —— 划分成立，求职者靠本人级规则访问自己的数据（这类规则不依赖
+  `accessible_org_ids`，**今天就能工作**）。
+- **墙立起来之后**（objectstack #16215 开源多组织包 + #16137 接通 serve 挂载）—— **同一套划分不用改**。
+  进墙的对象额外获得引擎级隔离（强于 RLS），出墙的对象继续可被求职者访问。
+
+⛔ 因此**不要**为了让种子写入通过而发明一个「平台组织」来持有候选人等行。那在今天只是个语义谎言，
+墙立起来之后会变成一堵真墙，把候选人锁进一个谁都不该属于的租户里；而任何 `sys_member` 行把用户接进那个组织，
+就能通过组织范围规则读到全部候选人。**用 `tenancy: { enabled: false }` 说实话。**
+
+### 自助入驻的现状与到期条件（2026-09-07）
+
+**求职者**：能自助注册，但需要两个配置动作，默认都是关的 ——
+`audience.posture` 从默认的 `invite_only` 改为 `open` 或 `email_domain`（否则 `SELF_REGISTRATION_CLOSED`），
+且 `membershipPolicy` 必须是 **`invite-only`**（不自动绑组织）。
+⛔ 不要用 `auto`：那会把所有求职者绑进同一个默认组织，等于给他们一个共同的组织身份，
+而组织在这个平台里是隔离边界。**求职者不属于任何组织是正确状态，不是待修的缺陷。**
+
+**雇主**：今天**无法自助注册**。组织创建路由的裁判是生效的 tenancy posture
+（`auth-manager.ts` 的 `beforeCreateOrganization`：`if (!this.multiOrgPostureEffective())` → FORBIDDEN），
+理由是在没有墙的部署上创建组织等于铸造一个无人守卫的边界。
+所以当前每个雇主组织只能由种子或运维带外创建。
+
+**到期条件**：这是暂时的，不是永久约束。#16215 + #16137 落地后开源部署能带墙启动，
+`multiOrgPostureEffective()` 为真，雇主自助注册随之打通 —— 届时 F1 机构资质审核才能接上真实的入驻流程。
 
 ### 角色与权限矩阵
 
