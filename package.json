@@ -13,7 +13,7 @@
     "start": "objectstack start",
     "build": "objectstack build",
     "validate": "objectstack validate",
-    "lint": "objectstack lint",
+    "lint": "objectstack lint --i18n-strict",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
