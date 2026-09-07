@@ -18,6 +18,7 @@ import {
   JobSeekerSet,
   GuestApplySet,
   registerAtsPositionBindings,
+  AtsRlsMembershipResolverPlugin,
 } from './src/security/index.js';
 
 /**
@@ -84,6 +85,14 @@ export default defineStack({
     JobSeekerSet,
     GuestApplySet,
   ],
+
+  // Runtime — the app-owned RLS membership resolver that makes the employer
+  // policies above resolvable (`current_user.employer_org_ids`, DESIGN.md §03).
+  // A kernel plugin rather than an `onEnable` call on purpose: plugin-security
+  // reads the resolver once in its `start()`, before the app's `onEnable`
+  // runs, so only a plugin's `init()` (Phase 1) lands the service in time.
+  // In-repo code, no new package (see rls-membership-resolver.ts).
+  plugins: [AtsRlsMembershipResolverPlugin],
 });
 
 /**
@@ -91,6 +100,11 @@ export default defineStack({
  * `sys_position_permission_set` row joins them, and that row cannot be a seed
  * (the seed loader runs before the security bootstrap creates the rows it
  * would reference). Bind them on `kernel:bootstrapped` instead.
+ *
+ * Not the place for the RLS membership resolver: `onEnable` runs inside
+ * AppPlugin's `start()`, after plugin-security has already looked the resolver
+ * up (measured on cli 17.3.0 — registered here, never seen). It is declared
+ * under `plugins` above so it registers in Phase 1.
  */
 export const onEnable = async (ctx: unknown): Promise<void> => {
   registerAtsPositionBindings(ctx as Parameters<typeof registerAtsPositionBindings>[0]);
