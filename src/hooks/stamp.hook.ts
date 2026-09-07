@@ -160,18 +160,23 @@ export const JobStampHook = defineHook({
  *
  * ## What counts as activity on an application
  *
- * `last_activity_at` is the seeker timeline's clock (DESIGN.md §04) and the one
- * recency signal a view can sort on. It used to be assigned unconditionally, on
- * both events, outside every guard. Measured on a seeded sqlite boot, that had
- * two consequences: all 200 demo applications carried ONE identical instant —
- * one instant rather than a 0.7s spread, because `claimSeedOwnership`'s
- * `multi: true` claim applies a single `SET` clause to every matched row (#43's
- * shape, ADR-0058 Addendum II D3) — and the seed's authored `activityDaysAgo`
- * never reached the database at all. Guarding only the insert would have fixed
- * the first boot and left the second: the claim pass, and the seed's own
- * re-boot upsert, would wipe the restored history on boot 2 of a persistent
- * database. So the question this hook has to answer is not "insert or update"
- * but WHICH PAYLOADS ARE ACTIVITY. Three clauses, in order:
+ * `last_activity_at` is the column the seeker's "My Applications" timeline
+ * shows (DESIGN.md §04) and the only recency signal the model offers. It used
+ * to be assigned unconditionally, on both events, outside every guard, so the
+ * seed's authored `activityDaysAgo` never reached the database: measured on a
+ * seeded sqlite boot, all 200 demo applications ended the boot carrying ONE
+ * identical instant. Identical rather than merely inside one second because the
+ * boot's LAST write to them is `claimSeedOwnership`'s `multi: true` claim, and a
+ * predicate update sends ONE `SET` clause: whatever the handler wrote for the
+ * last matched row lands on every matched row (#43's shape, ADR-0058 Addendum
+ * II D3). #65 read the same table as a 0.7s window on its author's boot — either
+ * way the column is boot time, and either way the write that produces it is on
+ * the UPDATE path, which is why guarding only the insert would have fixed the
+ * first boot and left the second: the claim pass, and the seed's own re-boot
+ * upsert, wipe restored history on boot 2 of a persistent database (measured:
+ * before this guard, 200 of 200 values changed between two boots of one file).
+ * So the question this hook has to answer is not "insert or update" but WHICH
+ * PAYLOADS ARE ACTIVITY. Three clauses, in order:
  *
  *   1. A payload that names `last_activity_at` with a value is authored data —
  *      seed history, an import, a backfill — and wins on both events. This is
