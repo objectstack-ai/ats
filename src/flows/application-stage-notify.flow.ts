@@ -15,8 +15,12 @@ import { defineFlow, cel } from '@objectstack/spec';
  *
  * DESIGN.md §05 reads "refresh `last_activity_at`". That already happens on the
  * SAME write that changes the stage: `ApplicationStampHook` runs at
- * `beforeUpdate` and stamps `last_activity_at = now()` on every application
- * update, unconditionally (stamp.hook.ts, last line of the handler). By the
+ * `beforeUpdate` and stamps `last_activity_at = now()` on any update whose
+ * payload names a field of the application — which a stage change is. (It is
+ * NOT unconditional, as this paragraph claimed before #65: a payload of only
+ * bookkeeping columns — the ownership claim, a derived roll-up — deliberately
+ * does not move the activity clock, and an authored value always wins. See
+ * stamp.hook.ts, "What counts as activity on an application".) By the
  * time this `record-after-update` flow starts, the value is already the
  * timestamp of the stage change, and `record.last_activity_at` carries it. A
  * second `update_record` here would issue another write per stage change, run

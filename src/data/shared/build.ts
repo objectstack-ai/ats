@@ -8,9 +8,25 @@
  * package was built and two consecutive builds stay byte-identical.
  *
  * Denormalised fields are written EXPLICITLY here — `display_name` mirrors,
- * `employer`, `employer_org`, `candidate_user` — because a seed row does not
- * go through the stamp hooks (`skipTriggers`), and a seed that leaned on them
- * would break silently the day a hook changed.
+ * `employer`, `employer_org`, `candidate_user` — so the seed states the facts
+ * it means rather than inheriting whatever a hook computes today, and a seed
+ * that leaned on them would break silently the day a hook changed.
+ *
+ * ⚠️ This block used to say a seed row "does not go through the stamp hooks
+ * (`skipTriggers`)". That is false, and the flag it cited is the reason it is
+ * false. `skipTriggers` is real and the seed loader does carry it, but the
+ * loader's own contract says what it suppresses: record-change AUTOMATION —
+ * autolaunched flow triggers — because a seed is end-state data, not a stream
+ * of user events. Its next sentence is the one that matters here:
+ * "Lifecycle HOOKS (derived/default fields, validation) still run."
+ * (`@objectstack/metadata-protocol` `src/seed-loader.ts`, the SEED_OPTIONS
+ * docblock.) So every stamp hook in `src/hooks/` DOES fire on these rows —
+ * which is exactly how #65 happened: an unconditional `last_activity_at`
+ * assignment overwrote the authored value on all 200 applications, and the
+ * comment that said hooks could not reach a seed row is what would have
+ * stopped someone looking. Seed writes also carry `seedReplay`, which skips
+ * the object's `state_machine` entry and transition checks — that is why an
+ * `ats_offer` can be seeded straight into its terminal `accepted` state (#53).
  *
  * The kernel's tenant column `organization_id` is written explicitly as well,
  * on the four objects that stay inside the Layer 0 tenant wall (DESIGN.md §03,
