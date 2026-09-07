@@ -47,11 +47,19 @@ served exactly the navigation group its position unlocks (DESIGN.md §04); the s
 | `admin@harborline.example` | `demo1234` | Employer administrator, Harborline | **Hiring** group |
 | `candidate01@mail.example` | `demo1234` | Job seeker | **Job Seeker** group |
 
-> Known gap: an employer persona currently sees the Hiring group with **empty lists**. Every
-> employer-side row-level policy fails closed because the platform never resolves
-> `current_user.accessible_org_ids` for RLS — tracked in
-> [#18](https://github.com/objectstack-ai/ats/issues/18) (upstream objectstack#16518). The
-> platform personas read everything through `viewAllRecords`, so they show the data today.
+Employer isolation works: signed in as Quillstone you see 5 jobs, 27 applications, 2 offers and
+3 team members; as Harborline, 5 / 31 / 2 / 3 — and neither sees a single row of the other's.
+
+> **Run the demo on `--database-driver memory`.** On the default driver the four tenancy-scoped
+> objects (`ats_employer`, `ats_employer_member`, `ats_interview`, `ats_offer`) return no rows to
+> the platform personas, so the Platform group's review queues look empty. The employer and seeker
+> personas are unaffected. Cause and evidence: [#39](https://github.com/objectstack-ai/ats/issues/39)
+> (upstream [objectstack#16589](https://github.com/objectstack-ai/objectstack/issues/16589)).
+>
+> Two other known gaps, both with the measurement in the issue:
+> [#45](https://github.com/objectstack-ai/ats/issues/45) — an employer administrator cannot yet
+> *create* a job (blocked upstream); [#13](https://github.com/objectstack-ai/ats/issues/13) —
+> employers can currently read every candidate profile, including ones marked hidden.
 
 Every metadata change is gated:
 
