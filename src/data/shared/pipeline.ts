@@ -15,7 +15,12 @@
  *                 hired 9 · rejected 15 · withdrawn 0 · (job, candidate) unique
  *   interviews:   40 · every row on an interview-stage application ·
  *                 day 1–14 from seed time (12 applications carry a round 2)
- *   offers:       14 · one per offer-stage application · 3 pending_approval
+ *   offers:       23 · one per offer-stage application (14: 2 draft ·
+ *                 3 pending_approval · 3 approved · 5 sent · 1 declined) and
+ *                 one `accepted` per hired application (9) — `hired` is
+ *                 reachable only from `offer` (DESIGN.md §02) and F3 writes
+ *                 the offer row, so a hired application without its accepted
+ *                 offer would be a history the app cannot produce (#53)
  *   inquiries:    8 · all `new` · 5 from people with no candidate row, 3 from
  *                 seeded candidates (converting one attaches to that row) ·
  *                 every job published · 2 Quillstone · 2 Harborline
@@ -52,12 +57,19 @@ export interface InterviewRow {
   mode: 'onsite' | 'video' | 'phone';
 }
 
-export type OfferStatus = 'draft' | 'pending_approval' | 'approved' | 'sent' | 'declined';
+export type OfferStatus = 'draft' | 'pending_approval' | 'approved' | 'sent' | 'accepted' | 'declined';
 
 export interface OfferRow {
-  /** Index into APPLICATIONS (an offer-stage row). */
+  /** Index into APPLICATIONS — an offer-stage row, or a hired row when `status` is `accepted`. */
   application: number;
   status: OfferStatus;
+  /**
+   * Calendar days from seed time (`daysFromNow(n)`); negative = that many
+   * days ago (`daysAgo(-n)`). Only accepted offers go negative: the hire
+   * happened `activityDaysAgo` days ago, the start date follows it by two to
+   * four weeks and the expiry it beat sits a few days after the acceptance,
+   * so both may already be in the past for the longer-hired rows.
+   */
   startInDays: number;
   expiresInDays: number;
 }
@@ -433,18 +445,31 @@ export const INTERVIEWS: readonly InterviewRow[] = [
 ];
 
 export const OFFERS: readonly OfferRow[] = [
-  { application: 1, status: "pending_approval", startInDays: 21, expiresInDays: 7 },
-  { application: 15, status: "sent", startInDays: 24, expiresInDays: 8 },
-  { application: 30, status: "approved", startInDays: 27, expiresInDays: 9 },
-  { application: 35, status: "draft", startInDays: 30, expiresInDays: 10 },
-  { application: 62, status: "sent", startInDays: 33, expiresInDays: 11 },
-  { application: 71, status: "pending_approval", startInDays: 36, expiresInDays: 12 },
-  { application: 78, status: "sent", startInDays: 39, expiresInDays: 13 },
-  { application: 87, status: "approved", startInDays: 42, expiresInDays: 14 },
-  { application: 106, status: "declined", startInDays: 45, expiresInDays: 7 },
-  { application: 123, status: "sent", startInDays: 48, expiresInDays: 8 },
-  { application: 128, status: "pending_approval", startInDays: 51, expiresInDays: 9 },
-  { application: 140, status: "approved", startInDays: 54, expiresInDays: 10 },
-  { application: 180, status: "draft", startInDays: 57, expiresInDays: 11 },
-  { application: 186, status: "sent", startInDays: 60, expiresInDays: 12 },
+  // Sorted by application index. `accepted` rows sit on the nine hired
+  // applications (a000 a053 a056 a060 a099 a100 a121 a163 a164); every other
+  // status sits on an offer-stage application. Offsets on the accepted rows
+  // are relative to that application's `activityDaysAgo` (the hire date).
+  { application: 0,   status: "accepted",         startInDays: 11,  expiresInDays: -5 },  // hired 10 days ago
+  { application: 1,   status: "pending_approval", startInDays: 21,  expiresInDays: 7 },
+  { application: 15,  status: "sent",             startInDays: 24,  expiresInDays: 8 },
+  { application: 30,  status: "approved",         startInDays: 27,  expiresInDays: 9 },
+  { application: 35,  status: "draft",            startInDays: 30,  expiresInDays: 10 },
+  { application: 53,  status: "accepted",         startInDays: -4,  expiresInDays: -25 }, // hired 32 days ago
+  { application: 56,  status: "accepted",         startInDays: -1,  expiresInDays: -17 }, // hired 22 days ago
+  { application: 60,  status: "accepted",         startInDays: 15,  expiresInDays: -8 },  // hired 15 days ago
+  { application: 62,  status: "sent",             startInDays: 33,  expiresInDays: 11 },
+  { application: 71,  status: "pending_approval", startInDays: 36,  expiresInDays: 12 },
+  { application: 78,  status: "sent",             startInDays: 39,  expiresInDays: 13 },
+  { application: 87,  status: "approved",         startInDays: 42,  expiresInDays: 14 },
+  { application: 99,  status: "accepted",         startInDays: 18,  expiresInDays: 1 },   // hired 6 days ago
+  { application: 100, status: "accepted",         startInDays: 18,  expiresInDays: 4 },   // hired 3 days ago
+  { application: 106, status: "declined",         startInDays: 45,  expiresInDays: 7 },
+  { application: 121, status: "accepted",         startInDays: -19, expiresInDays: -29 }, // hired 33 days ago
+  { application: 123, status: "sent",             startInDays: 48,  expiresInDays: 8 },
+  { application: 128, status: "pending_approval", startInDays: 51,  expiresInDays: 9 },
+  { application: 140, status: "approved",         startInDays: 54,  expiresInDays: 10 },
+  { application: 163, status: "accepted",         startInDays: 2,   expiresInDays: -20 }, // hired 26 days ago
+  { application: 164, status: "accepted",         startInDays: 22,  expiresInDays: -1 },  // hired 6 days ago
+  { application: 180, status: "draft",            startInDays: 57,  expiresInDays: 11 },
+  { application: 186, status: "sent",             startInDays: 60,  expiresInDays: 12 },
 ];

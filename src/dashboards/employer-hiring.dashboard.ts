@@ -18,8 +18,10 @@ import type { Dashboard } from '@objectstack/spec/ui';
  *   - the duration lives across two objects and needs a stored column
  *     (`ats_application.days_to_offer`, stamped when the offer is written),
  *     which is an object + hook change outside this card;
- *   - the demo seed has no offer on any hired application (its 14 offers all
- *     sit on `offer`-stage applications), so the tile would read empty anyway.
+ *   - the demo seed does now carry one `accepted` offer per hired application
+ *     (#53 — before it, all 14 offers sat on `offer`-stage applications and the
+ *     tile would have read empty), so what keeps the tile out is the two
+ *     reasons above, not the data.
  * The pipeline-by-stage bar takes its place so the surface shows the same
  * scoping at a glance; the tile returns with a card that adds the column.
  *
