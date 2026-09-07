@@ -17,11 +17,11 @@ where parallel dispatch is worth anything.
 | ~~04~~ | — | Candidate domain | M1 | **landed** |
 | ~~05~~ | — | Transaction domain | M1 | **landed** |
 | ~~06~~ | — | Positions, permission sets, RLS, FLS, hooks | M1 | **landed** |
-| [07](./07-employer-views.md) | [#2](https://github.com/objectstack-ai/ats/issues/2) | Employer views: pipeline kanban, inbox, interview calendar, talent pool | M2 | M1 |
+| ~~07~~ | [#2](https://github.com/objectstack-ai/ats/issues/2) | Employer views: pipeline kanban, inbox, interview calendar, talent pool | M2 | **landed** |
 | [08](./08-platform-seeker-views.md) | [#3](https://github.com/objectstack-ai/ats/issues/3) | Platform & seeker views + public application form | M2 | M1 |
 | [09](./09-apps.md) | [#4](https://github.com/objectstack-ai/ats/issues/4) | Three apps with navigation and permission gating | M2 | #2, #3 |
-| [10](./10-seed-data.md) | [#5](https://github.com/objectstack-ai/ats/issues/5) | Seed data: `demo-en` and `demo-zh` | M2 | M1 |
-| [11](./11-approval-flows.md) | [#6](https://github.com/objectstack-ai/ats/issues/6) | Approval flows F1–F3 + `automation` capability | M3 | M1 |
+| [10](./10-seed-data.md) | [#5](https://github.com/objectstack-ai/ats/issues/5) | Seed data: `demo-en` and `demo-zh` | M2 | #20 |
+| ~~11~~ | [#6](https://github.com/objectstack-ai/ats/issues/6) | Approval flows F1–F3 + `automation` capability | M3 | **landed** |
 | [12](./12-notifications-jobs.md) | [#7](https://github.com/objectstack-ai/ats/issues/7) | Notifications and scheduled jobs F4–F6 | M3 | M1 |
 | [13](./13-dashboards.md) | [#8](https://github.com/objectstack-ai/ats/issues/8) | Three dashboards and their datasets | M3 | #5 |
 | [14](./14-release.md) | [#9](https://github.com/objectstack-ai/ats/issues/9) | Release: README, live demo, CI, screenshots, CONTRIBUTING | M4 | #4, #6, #7, #8 |
