@@ -21,3 +21,8 @@ export {
   AtsRlsMembershipResolverPlugin,
   EMPLOYER_ORG_IDS_KEY,
 } from './rls-membership-resolver.js';
+
+export {
+  AtsAuthMembershipPolicyPlugin,
+  ATS_MEMBERSHIP_POLICY,
+} from './auth-membership-policy.js';
