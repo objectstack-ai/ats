@@ -2,10 +2,11 @@ import { defineView } from '@objectstack/spec';
 import type { ListColumn } from '@objectstack/spec/ui';
 
 /**
- * The talent pool (card 07). There is no talent-pool object on purpose
- * (DESIGN.md §02): it is `ats_candidate` seen through these two views. Which
- * candidates an employer may see at all is the permission set's decision;
- * the contact and salary fields stay masked by field-level security.
+ * Views over `ats_candidate`: the employer's talent pool (card 07) and the
+ * seeker's own profile form (card 08). There is no talent-pool object on
+ * purpose (DESIGN.md §02): it is `ats_candidate` seen through these views.
+ * Which candidates an employer may see at all is the permission set's
+ * decision; the contact and salary fields stay masked by field-level security.
  */
 
 const data = { provider: 'object' as const, object: 'ats_candidate' };
@@ -59,6 +60,49 @@ export const CandidateViews = defineView({
         visibleFields: ['current_title', 'city', 'seeking_status'],
       },
       sort: [{ field: 'full_name', order: 'asc' }],
+    },
+  },
+
+  formViews: {
+    /**
+     * The seeker's profile — every field, salary last (card 08). Keyed
+     * `default` rather than the card's `profile` because the shell binds the
+     * record create/edit surface to `form ?? formViews.default` and nothing
+     * else (objectui `RecordFormPage`); a `profile` key would register and be
+     * used by nothing. Sections are enumerated because the object declares
+     * no `fieldGroups`. The salary and contact fields stay masked for
+     * employer roles by field-level security, so the same form serves the
+     * candidate and platform staff without a second definition.
+     */
+    default: {
+      type: 'simple',
+      data,
+      sections: [
+        {
+          name: 'identity',
+          label: 'About You',
+          columns: 2,
+          fields: ['full_name', 'user', 'avatar', 'phone', 'email', 'city'],
+        },
+        {
+          name: 'background',
+          label: 'Background',
+          columns: 2,
+          fields: ['experience_years', 'education', 'current_title', 'current_employer', 'skills', 'summary', 'resume_file'],
+        },
+        {
+          name: 'preferences',
+          label: 'Job Search',
+          columns: 2,
+          fields: ['seeking_status', 'profile_visibility'],
+        },
+        {
+          name: 'salary',
+          label: 'Expected Salary',
+          columns: 2,
+          fields: ['expected_salary_min', 'expected_salary_max', 'salary_period'],
+        },
+      ],
     },
   },
 });

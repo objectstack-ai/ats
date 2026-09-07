@@ -2,12 +2,14 @@ import { defineView } from '@objectstack/spec';
 import type { ListColumn, ListView } from '@objectstack/spec/ui';
 
 /**
- * Employer-side views over `ats_application` — the pipeline (card 07).
+ * Views over `ats_application` — the employer's pipeline (card 07) and the
+ * seeker's own timeline (card 08).
  *
  * `display_name` is the stored "<candidate> → <job>" mirror the stamp hook
  * maintains, so it is a real column: safe to bind, sort and link on. Row
- * scope is the permission set's job (row-level rules on `employer_org`),
- * never a view filter — these views only decide what a page SHOWS.
+ * scope is the permission set's job (row-level rules on `employer_org` for
+ * employers, `candidate_user` for seekers), never a view filter — these views
+ * only decide what a page SHOWS.
  */
 
 type ViewContainer = Parameters<typeof defineView>[0];
@@ -91,6 +93,26 @@ export const ApplicationViews = defineView({
     inbox_interview: inbox('Inbox · Interview', 'interview'),
     inbox_offer: inbox('Inbox · Offer', 'offer'),
     inbox_hired: inbox('Inbox · Hired', 'hired'),
+
+    /**
+     * The seeker's "My Applications": a chronological stream anchored on
+     * `applied_at`, coloured by `stage`. No filter — the seeker's row-level
+     * rule (`candidate_user == current_user.id`) is what makes it "mine";
+     * platform staff see the same stream over every application.
+     */
+    mine: {
+      label: 'My Applications',
+      type: 'timeline',
+      data,
+      columns: ['display_name', 'job', 'stage', 'applied_at', 'last_activity_at'],
+      timeline: {
+        startDateField: 'applied_at',
+        titleField: 'display_name',
+        colorField: 'stage',
+        scale: 'month',
+      },
+      sort,
+    },
   },
 
   formViews: {

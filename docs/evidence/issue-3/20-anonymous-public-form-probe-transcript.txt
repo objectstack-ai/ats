@@ -1,0 +1,63 @@
+## 1. anonymous GET /api/v1/forms/apply (no cookie, no token)
+HTTP 200
+{
+ "slug": "apply",
+ "object": "ats_application",
+ "sectionFields": [
+  [
+   "job",
+   "cover_letter",
+   "resume_snapshot"
+  ]
+ ],
+ "objectSchemaFields": [
+  "job",
+  "resume_snapshot",
+  "cover_letter"
+ ],
+ "sharing": {
+  "enabled": true,
+  "publicLink": "/forms/apply",
+  "allowAnonymous": true
+ },
+ "submitBehavior": {
+  "kind": "thank-you",
+  "title": "Application received",
+  "message": "Thank you — the employer will be in touch."
+ }
+}
+
+## 2. anonymous lookup of job through the declared publicPicker
+{"error":"Malformed $filter: [{\"field\":\"status\",\"operator\":\"equals\",\"value\":\"published\"},{\"field\":\"title\",\"operator\":\"contains\",\"value\":\"engineer\"}] is not a recognised filter shape. A filter array is a comparison [field, operator, value], a logical node [\"and\"|\"or\", ...conditions], or a list of those. Recognised operators: !=, <, <=, <>, =, ==, >, >=, after, before, between, contains, ends_with, endswith, eq, equals, greater_than, greater_than_or_equal, greaterorequal, greaterthan, greaterthanorequal, g…","code":"INVALID_FILTER"}
+HTTP 400
+
+job id for the probe: 
+
+## 3. anonymous POST /api/v1/forms/apply/submit — job + cover_letter (what the form collects)
+{"error":"Job is required; Candidate is required","code":"VALIDATION_FAILED","fields":[{"field":"job","code":"required","message":"Job is required","label":"Job"},{"field":"candidate","code":"required","message":"Candidate is required","label":"Candidate"}]}
+HTTP 400
+
+
+## 4. anonymous POST — smuggling candidate (undeclared field) and identity fields
+{"error":"Job is required; Candidate is required","code":"VALIDATION_FAILED","fields":[{"field":"job","code":"required","message":"Job is required","label":"Job"},{"field":"candidate","code":"required","message":"Candidate is required","label":"Candidate"}]}
+HTTP 400
+
+
+## 5. anonymous READ attempts
+/api/v1/data/ats_application                                 HTTP 401
+/api/v1/data/ats_application?filter[cover_letter]=probe      /api/v1/data/ats_candidate                                   HTTP 401
+/api/v1/meta/view                                            HTTP 401
+
+## 6. anonymous POST with a REAL published job id (ats_job-1788777139261-1) — job + cover_letter + resume_snapshot omitted
+{"error":"Candidate is required","code":"VALIDATION_FAILED","fields":[{"field":"candidate","code":"required","message":"Candidate is required","label":"Candidate"}]}
+HTTP 400
+
+
+## 7. anonymous POST with job id AND an undeclared candidate id (route strips undeclared keys)
+{"error":"Candidate is required","code":"VALIDATION_FAILED","fields":[{"field":"candidate","code":"required","message":"Candidate is required","label":"Candidate"}]}
+HTTP 400
+
+
+## 8. anonymous GET of a public-form for ats_candidate (none declared) and the console page route
+/api/v1/forms/candidate                            HTTP 404
+/_console/f/apply (SPA shell)                      HTTP 200
