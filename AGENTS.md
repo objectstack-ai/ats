@@ -19,6 +19,7 @@ platform operator) defined as typed metadata. Not a framework, not a package —
 ```bash
 pnpm validate     # protocol schema + CEL predicates (record.<field> existence) + widget bindings
 pnpm lint         # data-model conventions: reserved vocabulary, titles, master-detail, select options
+                  # + zh-CN coverage (--i18n-strict) + en.ts source parity (pnpm check:i18n-source)
 pnpm typecheck
 ```
 

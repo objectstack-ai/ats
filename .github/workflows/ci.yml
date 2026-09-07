@@ -7,7 +7,12 @@
 # the same commands, the same scripts in package.json, so a green run here and
 # a green run on a laptop mean the same thing. Each gate is its own step so a
 # red run names the gate that failed; `pnpm lint` carries `--i18n-strict`, so
-# a translatable key missing its zh-CN string is a failure, not a warning.
+# a translatable key missing its zh-CN string is a failure, not a warning, and
+# it chains `pnpm check:i18n-source`, so an `en.ts` entry that no longer matches
+# the label its metadata declares is a failure too (#63). That script runs its
+# own `--self-test` first, on every CI run: the gate proves here, in CI, that it
+# still reports a drifted value, an orphaned key and a missing one, so a green
+# run means "compared and equal" rather than "compared nothing".
 #
 # Nothing here is allowed to skip: `--frozen-lockfile` refuses to resolve a
 # lockfile that disagrees with package.json instead of quietly rewriting it,
@@ -63,7 +68,7 @@ jobs:
       - name: validate — protocol schema, CEL predicates, widget bindings
         run: pnpm validate
 
-      - name: lint — data-model conventions + zh-CN translation parity
+      - name: lint — data-model conventions + zh-CN coverage + en.ts source parity
         run: pnpm lint
 
       - name: typecheck
