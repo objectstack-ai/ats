@@ -1,0 +1,20 @@
+# Inline dataset checks · memory driver · 2026-09-07T15:09:07Z
+# Same requests as 32-…-sqlite.txt, as admin@platform.example.
+
+## measure-scoped filter + derived ratio
+-> {"error": "Internal server error", "code": "NOT_IMPLEMENTED"}
+server log:
+[REST] Analytics dataset query error: Error: Per-aggregation `filter` on "rejected_count" is not supported by this backend (driver-memory). The query is spelled correctly and @objectstack/spec AggregationNodeSchema declares the key — this backend compiles no conditional-aggregate (SQL FILTER (WHERE …) / CASE WHEN) expression for it, so it is refused rather than silently aggregating the UNFILTERED rows (#10413), which is why it answers NOT_IMPLEMENTED/501 rather than a 400. `engine.aggregate` lowers filtered aggregations in memory for every driver without native support — route the query 
+    at refusePerAggregationFilter (file:///home/user/ats-issue-8/node_modules/.pnpm/@objectstack+driver-memory@17.3.0/node_modules/@objectstack/driver-memory/dist/index.mjs:233:15)
+
+## count by applied_at, dateGranularity week
+-> [{"applied_at": "2026-W27", "cnt": 1}, {"applied_at": "2026-W28", "cnt": 1}, {"applied_at": "2026-W29", "cnt": 3}, {"applied_at": "2026-W30", "cnt": 3}, {"applied_at": "2026-W31", "cnt": 6}, {"applied_at": "2026-W32", "cnt": 7}, {"applied_at": "2026-W33", "cnt": 7}, {"applied_at": "2026-W34", "cnt": 7}, {"applied_at": "2026-W35", "cnt": 7}, {"applied_at": "2026-W36", "cnt": 7}]
+
+## count by applied_at, dateGranularity month
+-> [{"applied_at": "2026-07", "cnt": 12}, {"applied_at": "2026-08", "cnt": 31}, {"applied_at": "2026-09", "cnt": 6}]
+
+## count by applied_at, dateGranularity day (first 300 chars)
+-> [{"applied_at": "2026-07-03", "cnt": 1}, {"applied_at": "2026-07-11", "cnt": 1}, {"applied_at": "2026-07-14", "cnt": 1}, {"applied_at": "2026-07-17", "cnt": 1}, {"applied_at": "2026-07-19", "cnt": 1}, {"applied_at": "2026-07-20", "cnt": 1}, {"applied_at": "2026-07-23", "cnt": 1}, {"applied_at": "202
+
+## same window, no dimension (Aug 31 - Sep 6)
+-> [{"cnt": 38}]

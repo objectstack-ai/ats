@@ -1,0 +1,15 @@
+# Inline dataset checks · sqlite (default) driver · 2026-09-07T15:08:11Z
+# Every request: POST /api/v1/analytics/dataset/query as admin@platform.example with an INLINE dataset (body.dataset), so the shape under test is exactly the one named.
+
+## measure-scoped filter + derived ratio (the shape the card's conversion tiles need)
+dataset measures: rejected_count = count filter {stage: rejected} · applied_count = count filter {stage: applied} · ratio_r = ratio(rejected_count, applied_count)
+-> [{"rejected_count": 15, "applied_count": 88, "ratio_r": 0.17045454545454544}]
+
+## count by applied_at, dateGranularity week
+-> [{"applied_at": "2026-W27", "cnt": 2}, {"applied_at": "2026-W28", "cnt": 4}, {"applied_at": "2026-W29", "cnt": 4}, {"applied_at": "2026-W30", "cnt": 4}, {"applied_at": "2026-W31", "cnt": 10}, {"applied_at": "2026-W32", "cnt": 24}, {"applied_at": "2026-W33", "cnt": 28}, {"applied_at": "2026-W34", "cnt": 40}, {"applied_at": "2026-W35", "cnt": 46}, {"applied_at": "2026-W36", "cnt": 38}]
+
+## count by applied_at, dateGranularity month
+-> [{"applied_at": "2026-07", "cnt": 21}, {"applied_at": "2026-08", "cnt": 149}, {"applied_at": "2026-09", "cnt": 30}]
+
+## same window, no dimension (Aug 31 - Sep 6)
+-> [{"cnt": 38}]
