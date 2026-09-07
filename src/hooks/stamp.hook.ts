@@ -18,15 +18,21 @@ import { defineHook, type HookContext } from '@objectstack/spec/data';
  * The `display_name` stamps are the other half — objects with no natural title
  * need a stored, searchable one (a formula field is not searchable).
  *
- * ## The sandbox contract these handlers are written against
+ * ## The two execution surfaces, and the read channel they share
  *
- * `os build` lowers every handler to a metadata-only `body` and the runtime
- * executes it in the QuickJS sandbox (`BodyRunner`). The sandbox `ctx` has no
- * `ql`; its only read channel is `ctx.api.object(NAME).findOne({ where })`,
- * gated by the `api.read` capability. That capability is INFERRED by the
- * lowering step from the `.object(...).findOne` call shape — nothing here
- * declares it by hand, and a handler that read through any other surface would
- * ship `capabilities: []` and throw on first use.
+ * `os build` lowers every handler to a metadata-only `body`; a metadata-only
+ * runtime executes that body in the QuickJS sandbox (`BodyRunner`), while
+ * `objectstack dev` binds the in-process `handler` from the bundled config
+ * (measured on cli 17.3.0: the stack of a hook error runs through
+ * `objectstack.config.bundled_*.mjs`). Both surfaces hand the handler the same
+ * `ctx.api`, and on both the read channel is
+ * `ctx.api.object(NAME).findOne({ where: { id } })` — honoured as written, on
+ * the memory and the sqlite driver alike (40 of 40 seed-time job stamps
+ * resolved their own employer, #43). The sandbox gates it behind the
+ * `api.read` capability, which the lowering step INFERS from the
+ * `.object(...).findOne` call shape — nothing here declares it by hand, and a
+ * handler that read through any other surface would ship `capabilities: []`
+ * and throw on first use.
  *
  * `runAs: 'system'` is the sandbox spelling of the elevated read every stamp
  * needs. The engine hands a `runAs: 'system'` hook a system-elevated `ctx.api`
@@ -37,6 +43,34 @@ import { defineHook, type HookContext } from '@objectstack/spec/data';
  * nothing and the row would land outside every employer policy. (A `context`
  * key inside the query is silently overwritten by the repository, and `sudo()`
  * does not exist in the VM — neither is an alternative.)
+ *
+ * ## Why an update only re-stamps what the write payload names
+ *
+ * A predicate update (`multi: true`) sends ONE `SET` clause to the driver: the
+ * engine dispatches `beforeUpdate` once per matched row, but whatever a handler
+ * writes into `ctx.input` for one row is applied to EVERY matched row (ADR-0058
+ * Addendum II D3). The engine refuses only when the SET of keys diverges across
+ * rows; identical keys with per-row VALUES pass, and the last row's values win
+ * (objectstack#14744). Its own contract for per-row `ctx.previous` on such a
+ * write is that it exists for a guard to refuse with, not for a rewrite to aim
+ * by (objectstack#16074).
+ *
+ * The platform performs exactly such a write on every boot: plugin-security's
+ * `claimSeedOwnership` runs `update(object, { owner_id }, { where: { owner_id:
+ * null }, multi: true })` over every owner-bearing object right after the seed.
+ * A stamp that re-derives its value from `ctx.previous` on every update turns
+ * that pass into a data-corruption pass — measured on cli 17.3.0, both drivers:
+ * all 40 jobs carried `org_ats_orbit`, all 200 applications one Ironbridge job's
+ * employer, all 30 members the title of Orbit's last recruiter (#43).
+ *
+ * So the rule every handler below follows: on `beforeInsert` stamp everything;
+ * on `beforeUpdate` recompute a derived value ONLY when the payload names one
+ * of its source fields, or the derived field itself (a caller writing
+ * `employer_org` directly still gets it re-derived from the parent — the
+ * anti-tamper property stays). A payload that names neither — an ownership
+ * claim, a status change, a no-op PATCH — leaves the row's stamps alone.
+ * Residual, by the platform's own contract: a predicate update that CHANGES a
+ * source field across many rows must be issued by id.
  *
  * ## Why every handler is self-contained
  *
@@ -51,7 +85,12 @@ import { defineHook, type HookContext } from '@objectstack/spec/data';
 /** Row shape the stamps read back. Local to each handler by necessity. */
 type Row = Record<string, unknown>;
 
-/** `ats_employer_member` — inherit the employer's organization, and title the row. */
+/**
+ * `ats_employer_member` — inherit the employer's organization, and title the
+ * row as "USER NAME · ACCESS_LEVEL" (object description, DESIGN.md §02): the
+ * person's `sys_user.name`, with the user id as the fallback when the row is
+ * missing (#22).
+ */
 export const EmployerMemberStampHook = defineHook({
   name: 'ats_employer_member_stamp',
   object: 'ats_employer_member',
@@ -64,16 +103,27 @@ export const EmployerMemberStampHook = defineHook({
     if (!api) throw new Error('ats_employer_member_stamp: ctx.api is unavailable, the employer organization cannot be resolved');
     const input = ctx.input as Row;
     const prev = (ctx.previous ?? {}) as Row;
+    const inserting = ctx.event === 'beforeInsert';
+    const touched = (keys: string[]) => keys.some((k) => input[k] !== undefined);
 
-    const employerId = input.employer ?? prev.employer;
-    if (typeof employerId === 'string' && employerId !== '') {
-      const employer = (await api.object('ats_employer').findOne({ where: { id: employerId } })) as Row | null;
-      if (employer?.organization != null) input.employer_org = employer.organization;
+    if (inserting || touched(['employer', 'employer_org'])) {
+      const employerId = input.employer ?? prev.employer;
+      if (typeof employerId === 'string' && employerId !== '') {
+        const employer = (await api.object('ats_employer').findOne({ where: { id: employerId } })) as Row | null;
+        if (employer?.organization != null) input.employer_org = employer.organization;
+      }
     }
 
-    const who = String(input.user ?? prev.user ?? '');
-    const level = String(input.access_level ?? prev.access_level ?? '');
-    if (who !== '') input.display_name = level === '' ? who : `${who} · ${level}`;
+    if (inserting || touched(['user', 'access_level', 'display_name'])) {
+      const userId = input.user ?? prev.user;
+      const level = String(input.access_level ?? prev.access_level ?? '');
+      if (typeof userId === 'string' && userId !== '') {
+        const user = (await api.object('sys_user').findOne({ where: { id: userId } })) as Row | null;
+        const name = String(user?.name ?? '').trim();
+        const who = name !== '' ? name : userId;
+        input.display_name = level === '' ? who : `${who} · ${level}`;
+      }
+    }
   },
 });
 
@@ -90,6 +140,8 @@ export const JobStampHook = defineHook({
     if (!api) throw new Error('ats_job_stamp: ctx.api is unavailable, the employer organization cannot be resolved');
     const input = ctx.input as Row;
     const prev = (ctx.previous ?? {}) as Row;
+    const inserting = ctx.event === 'beforeInsert';
+    if (!inserting && !['employer', 'employer_org'].some((k) => input[k] !== undefined)) return;
 
     const employerId = input.employer ?? prev.employer;
     if (typeof employerId !== 'string' || employerId === '') return;
@@ -103,7 +155,8 @@ export const JobStampHook = defineHook({
  *
  * `employer` and `employer_org` are taken from the JOB, never from the incoming
  * payload: letting a caller supply them would let them file an application into
- * another employer's scope.
+ * another employer's scope. A payload that names them is therefore a reason to
+ * re-derive, never a value to keep.
  */
 export const ApplicationStampHook = defineHook({
   name: 'ats_application_stamp',
@@ -117,28 +170,33 @@ export const ApplicationStampHook = defineHook({
     if (!api) throw new Error('ats_application_stamp: ctx.api is unavailable, the job and candidate cannot be resolved');
     const input = ctx.input as Row;
     const prev = (ctx.previous ?? {}) as Row;
+    const inserting = ctx.event === 'beforeInsert';
+    const touched = (keys: string[]) => keys.some((k) => input[k] !== undefined);
 
-    let jobTitle = '';
-    const jobId = input.job ?? prev.job;
-    if (typeof jobId === 'string' && jobId !== '') {
-      const job = (await api.object('ats_job').findOne({ where: { id: jobId } })) as Row | null;
-      if (job) {
-        if (job.employer != null) input.employer = job.employer;
-        if (job.employer_org != null) input.employer_org = job.employer_org;
-        jobTitle = String(job.title ?? '');
+    if (inserting || touched(['job', 'candidate', 'employer', 'employer_org', 'candidate_user', 'display_name'])) {
+      let jobTitle = '';
+      const jobId = input.job ?? prev.job;
+      if (typeof jobId === 'string' && jobId !== '') {
+        const job = (await api.object('ats_job').findOne({ where: { id: jobId } })) as Row | null;
+        if (job) {
+          if (job.employer != null) input.employer = job.employer;
+          if (job.employer_org != null) input.employer_org = job.employer_org;
+          jobTitle = String(job.title ?? '');
+        }
       }
+
+      let who = '';
+      const candidateId = input.candidate ?? prev.candidate;
+      if (typeof candidateId === 'string' && candidateId !== '') {
+        const candidate = (await api.object('ats_candidate').findOne({ where: { id: candidateId } })) as Row | null;
+        if (candidate?.user != null) input.candidate_user = candidate.user;
+        who = String(candidate?.full_name ?? '');
+      }
+
+      if (who !== '' || jobTitle !== '') input.display_name = `${who} → ${jobTitle}`.trim();
     }
 
-    let who = '';
-    const candidateId = input.candidate ?? prev.candidate;
-    if (typeof candidateId === 'string' && candidateId !== '') {
-      const candidate = (await api.object('ats_candidate').findOne({ where: { id: candidateId } })) as Row | null;
-      if (candidate?.user != null) input.candidate_user = candidate.user;
-      who = String(candidate?.full_name ?? '');
-    }
-
-    if (who !== '' || jobTitle !== '') input.display_name = `${who} → ${jobTitle}`.trim();
-    if (ctx.event === 'beforeInsert' && input.applied_at == null) {
+    if (inserting && input.applied_at == null) {
       input.applied_at = new Date().toISOString();
     }
     input.last_activity_at = new Date().toISOString();
@@ -158,6 +216,8 @@ export const InterviewStampHook = defineHook({
     if (!api) throw new Error('ats_interview_stamp: ctx.api is unavailable, the application cannot be resolved');
     const input = ctx.input as Row;
     const prev = (ctx.previous ?? {}) as Row;
+    const inserting = ctx.event === 'beforeInsert';
+    if (!inserting && !['application', 'round', 'display_name'].some((k) => input[k] !== undefined)) return;
 
     const applicationId = input.application ?? prev.application;
     if (typeof applicationId !== 'string' || applicationId === '') return;
@@ -189,6 +249,8 @@ export const OfferStampHook = defineHook({
     if (!api) throw new Error('ats_offer_stamp: ctx.api is unavailable, the application cannot be resolved');
     const input = ctx.input as Row;
     const prev = (ctx.previous ?? {}) as Row;
+    const inserting = ctx.event === 'beforeInsert';
+    if (!inserting && !['application', 'employer', 'employer_org', 'candidate_user', 'display_name'].some((k) => input[k] !== undefined)) return;
 
     const applicationId = input.application ?? prev.application;
     if (typeof applicationId !== 'string' || applicationId === '') return;
@@ -217,6 +279,8 @@ export const CandidateCredentialStampHook = defineHook({
     if (!api) throw new Error('ats_candidate_credential_stamp: ctx.api is unavailable, the credential type cannot be resolved');
     const input = ctx.input as Row;
     const prev = (ctx.previous ?? {}) as Row;
+    const inserting = ctx.event === 'beforeInsert';
+    if (!inserting && !['credential_type', 'level', 'display_name'].some((k) => input[k] !== undefined)) return;
 
     const typeId = input.credential_type ?? prev.credential_type;
     let name = '';
