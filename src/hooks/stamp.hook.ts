@@ -157,6 +157,53 @@ export const JobStampHook = defineHook({
  * payload: letting a caller supply them would let them file an application into
  * another employer's scope. A payload that names them is therefore a reason to
  * re-derive, never a value to keep.
+ *
+ * ## What counts as activity on an application
+ *
+ * `last_activity_at` is the seeker timeline's clock (DESIGN.md §04) and the one
+ * recency signal a view can sort on. It used to be assigned unconditionally, on
+ * both events, outside every guard. Measured on a seeded sqlite boot, that had
+ * two consequences: all 200 demo applications carried ONE identical instant —
+ * one instant rather than a 0.7s spread, because `claimSeedOwnership`'s
+ * `multi: true` claim applies a single `SET` clause to every matched row (#43's
+ * shape, ADR-0058 Addendum II D3) — and the seed's authored `activityDaysAgo`
+ * never reached the database at all. Guarding only the insert would have fixed
+ * the first boot and left the second: the claim pass, and the seed's own
+ * re-boot upsert, would wipe the restored history on boot 2 of a persistent
+ * database. So the question this hook has to answer is not "insert or update"
+ * but WHICH PAYLOADS ARE ACTIVITY. Three clauses, in order:
+ *
+ *   1. A payload that names `last_activity_at` with a value is authored data —
+ *      seed history, an import, a backfill — and wins on both events. This is
+ *      what carries the demo's history through the re-boot upsert. The test is
+ *      `== null`, so a client that sends the key as `null` still gets a stamp:
+ *      the column is a stamp, not a nullable note.
+ *   2. Filing IS activity — an insert with no authored value stamps now, the
+ *      same shape `applied_at` has two lines above.
+ *   3. An update stamps only when its payload names at least one field of the
+ *      application itself: a stage move, a rating, a rejection reason, a
+ *      re-pointed job. The exceptions are enumerated because each is a write
+ *      the PLATFORM makes ABOUT the row rather than a person acting ON it:
+ *        - `owner_id` — plugin-security's boot-time ownership claim. This is
+ *          the one that matters most: it is a `multi: true` predicate write
+ *          over every unowned row on EVERY boot.
+ *        - `days_to_offer` — the derived metric `ats_offer_time_to_offer`
+ *          stamps once. It restates a duration that ends at the OFFER's own
+ *          `created_at`, which the offer row already carries, and a recruiter
+ *          who extends an offer also moves the application to `stage: offer` —
+ *          that write is the activity. Counting the metric write as activity
+ *          would re-date the 23 offer-bearing demo applications to boot time on
+ *          boot 1 and not on boot 2 (the offer is inserted once, upserted
+ *          after): a demo dataset that changes shape per boot.
+ *        - `id`, `created_at`, `created_by`, `updated_at`, `updated_by` — the
+ *          engine's own columns. `updated_at` is the audit stamp of the last
+ *          write; "someone acted on this application" is a different fact, and
+ *          this field is the one that carries it.
+ *
+ * A deny-list rather than an allow-list, deliberately. Activity is "a write to
+ * this row" minus a short, nameable set of platform writes, so a field added to
+ * the object tomorrow counts without anyone remembering to list it; the failure
+ * direction is one stamp too many, never a timeline frozen at boot again.
  */
 export const ApplicationStampHook = defineHook({
   name: 'ats_application_stamp',
@@ -199,7 +246,17 @@ export const ApplicationStampHook = defineHook({
     if (inserting && input.applied_at == null) {
       input.applied_at = new Date().toISOString();
     }
-    input.last_activity_at = new Date().toISOString();
+
+    // `last_activity_at` — the rule and its reasons are in the header section
+    // "What counts as activity on an application". In short: an authored value
+    // wins; filing is activity; an update is activity when its payload names
+    // anything other than the platform's own bookkeeping columns or the
+    // derived metric a sibling hook stamps.
+    if (input.last_activity_at == null) {
+      const bookkeeping = ['id', 'owner_id', 'days_to_offer', 'created_at', 'created_by', 'updated_at', 'updated_by'];
+      const activity = Object.keys(input).some((k) => input[k] !== undefined && !bookkeeping.includes(k));
+      if (inserting || activity) input.last_activity_at = new Date().toISOString();
+    }
   },
 });
 
@@ -304,12 +361,15 @@ export const OfferStampHook = defineHook({
  * of the payload), never a predicate write. It goes down the engine's normal
  * path, so `ats_application`'s own `beforeUpdate` stamps run on it:
  * `ApplicationStampHook` sees a payload naming neither a source field nor a
- * derived one and re-derives nothing, but it does refresh `last_activity_at`,
- * as it does for every write to an application. That costs nothing here —
- * measured on a seeded sqlite boot, all 200 applications already carry a
- * `last_activity_at` inside the same second, because that assignment is
- * unconditional on `beforeInsert` too — and writing an offer IS activity on the
- * application, so it is the right answer rather than a side effect to suppress.
+ * derived one and re-derives nothing — and, since #65, does not refresh
+ * `last_activity_at` either: `days_to_offer` is named in that hook's
+ * bookkeeping list on purpose. This write restates a duration that ended at
+ * THIS offer's `created_at`, the offer row carries that timestamp, and the
+ * recruiter's own act — moving the application to `stage: offer` — is the write
+ * that counts as activity. The earlier reading here, that the refresh "costs
+ * nothing", held only while every application already read boot time; against a
+ * seeded database it would re-date the 23 offer-bearing applications on boot 1
+ * and not on boot 2. See "What counts as activity on an application" above.
  *
  * `runAs: 'system'`: a recruiter extending an offer is not necessarily allowed
  * to edit that application row, and a cross-object write through `ctx.api` is
