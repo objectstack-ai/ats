@@ -85,7 +85,7 @@ line before counting — counting earlier also reads zero. Rule and evidence: `s
 objectstack.config.ts   defineStack() — the single entry point
 src/objects/            ats_*.object.ts          src/security/     positions, permission sets, RLS, FLS, onEnable bindings
 src/views/              *.view.ts                src/hooks/        runtime handlers (display_name / employer stamps)
-src/apps/               *.app.ts                 src/flows/ src/jobs/  F1–F6 automation
+src/apps/               *.app.ts                 src/flows/            F1–F6 automation (F5/F6 are schedule flows)
 src/dashboards/         *.dashboard.ts + datasets src/translations/ en, zh-CN
 src/data/               demo-en/, demo-zh/ seeds docs/backlog/     work cards
 ```

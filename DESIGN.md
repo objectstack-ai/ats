@@ -323,7 +323,7 @@ src/objects/               12 个 *.object.ts
 src/views/                 看板 / 日历 / 收件箱 / 人才库 / 公开投递表单（ats_inquiry）
 src/apps/                  1 个 App，三组受众分区（ADR-0019 D3）
 src/actions/               投递分诊（转换 / 拒绝 / 垃圾）· 岗位页公开投递链接
-src/flows/  src/jobs/      F1–F6
+src/flows/                 F1–F6（F5/F6 为 schedule 类型 flow）
 src/dashboards/            3 个看板 + dataset
 src/security/              5 positions · 5 permission sets · RLS · FLS · onEnable 绑定
 src/hooks/                 display_name 镜像、employer 冗余字段的 stamp

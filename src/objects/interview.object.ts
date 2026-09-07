@@ -55,6 +55,21 @@ export const Interview = ObjectSchema.create({
     }),
     rating: Field.slider({ label: 'Rating', min: 1, max: 5 }),
     feedback: Field.textarea({ label: 'Feedback' }),
+
+    /**
+     * F6's idempotency marker (card 12, #7): the hourly `interview_reminder`
+     * flow selects `scheduled` interviews 23–25h out, notifies the candidate
+     * and the interviewers, and flips this to true so the next hourly run — and
+     * every run after it — skips the row. Written only by that `runAs:
+     * 'system'` flow; `readonly` keeps it off the employer's edit surface (a
+     * hand-cleared marker would re-send the reminder).
+     */
+    reminder_sent: Field.boolean({
+      label: 'Reminder Sent',
+      defaultValue: false,
+      readonly: true,
+      description: 'Set by the T-24h interview reminder (F6) once the candidate and interviewers have been notified.',
+    }),
   },
 
   validations: [
