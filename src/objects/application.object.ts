@@ -17,6 +17,12 @@ export const Application = ObjectSchema.create({
   description: 'A candidate applying to a job, and its progress through the pipeline.',
 
   sharingModel: 'private',
+  // Platform-global, jointly owned (DESIGN.md §03, tenancy wall split
+  // contract): an application belongs to the candidate AND the employer, and
+  // the tenant model assumes exactly one owner per row. It sits outside the
+  // Layer 0 tenant wall; the employer side is isolated by `employer_org`, the
+  // candidate side by `candidate_user`, both at the row-level layer.
+  tenancy: { enabled: false },
   nameField: 'display_name',
 
   fields: {

@@ -16,6 +16,9 @@ export const CredentialType = ObjectSchema.create({
   description: 'A licence or certificate that a job can require and a candidate can hold.',
 
   sharingModel: 'public_read',
+  // Platform-global dictionary (DESIGN.md §03, tenancy wall split contract):
+  // shared by every tenant, so it sits outside the Layer 0 tenant wall.
+  tenancy: { enabled: false },
 
   fields: {
     name: Field.text({

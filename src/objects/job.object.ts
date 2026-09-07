@@ -20,6 +20,11 @@ export const Job = ObjectSchema.create({
   description: 'A position an employer is hiring for.',
 
   sharingModel: 'public_read',
+  // Platform-global, jointly owned (DESIGN.md §03, tenancy wall split
+  // contract): a job is the employer's to write and every seeker's to read, so
+  // it sits outside the Layer 0 tenant wall; the employer side is isolated by
+  // `employer_org` at the row-level layer.
+  tenancy: { enabled: false },
 
   fields: {
     title: Field.text({

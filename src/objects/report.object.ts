@@ -15,6 +15,10 @@ export const Report = ObjectSchema.create({
   description: 'A user-submitted report about a job, candidate, application or employer.',
 
   sharingModel: 'private',
+  // Platform-global (DESIGN.md §03, tenancy wall split contract): reports are
+  // filed by any audience and worked by the platform, so the row belongs to no
+  // employer organization and sits outside the Layer 0 tenant wall.
+  tenancy: { enabled: false },
   nameField: 'subject',
 
   fields: {

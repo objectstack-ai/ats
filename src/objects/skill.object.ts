@@ -14,6 +14,9 @@ export const Skill = ObjectSchema.create({
   // A global vocabulary is useless if it is not globally readable. Write access
   // is withheld from every non-platform role by the permission sets instead.
   sharingModel: 'public_read',
+  // Platform-global dictionary (DESIGN.md §03, tenancy wall split contract):
+  // shared by every tenant, so it sits outside the Layer 0 tenant wall.
+  tenancy: { enabled: false },
 
   fields: {
     name: Field.text({

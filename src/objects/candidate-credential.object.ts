@@ -13,6 +13,9 @@ export const CandidateCredential = ObjectSchema.create({
   description: "A credential held by a candidate, with its level, number and expiry.",
 
   sharingModel: 'controlled_by_parent',
+  // Platform-global, like its parent candidate (DESIGN.md §03, tenancy wall
+  // split contract): outside the Layer 0 tenant wall, isolated by RLS alone.
+  tenancy: { enabled: false },
   nameField: 'display_name',
 
   fields: {
