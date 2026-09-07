@@ -1,0 +1,63 @@
+# Precedence and persistence — port 4621, ats @ cdbadc4 (#38)
+
+## 1. An explicit OS_AUTH_MEMBERSHIP_POLICY overrides the app declaration (driver: memory, --fresh)
+#  boot env: OS_AUTH_MEMBERSHIP_POLICY=auto
+2026-09-07T19:47:12.565Z INFO [ats] auth membership policy declared 'invite-only' (was 'auto') in init() — DESIGN.md §03: sign-up and the ADR-0093 D6 backfill bind nobody to the default organization. An explicit auth.membership_policy setting or OS_AUTH_MEMBERSHIP_POLICY still overrides this at kernel:ready.
+2026-09-07T19:47:14.058Z INFO [auth] membership backfill (app:seeded) bound 82 member-less user(s) to the default organization (ADR-0093 D6) {"scanned":113,"bound":82,"skipped":31}
+#  The app patches in init(); AuthPlugin's settings binding runs at kernel:ready, AFTER it, and
+#  applies the env value because its source is not 'default' (isExplicit, auth-plugin.ts). The
+#  backfill then binds the 82 again — operator override > app declaration > platform default.
+sys_member: total=113 hasMore=false len=113 consistent=true
+sys_member per organization:
+  org_mtrnjnrybobmaknn         83
+  org_ats_quillstone           3
+  org_ats_harborline           3
+  org_ats_cedarbrook           3
+  org_ats_brightmarket         3
+  org_ats_lumenvale            3
+  org_ats_summitridge          3
+  org_ats_swiftroute           2
+  org_ats_bluewater            2
+  org_ats_ironbridge           2
+  org_ats_pixelforge           2
+  org_ats_meridian             2
+  org_ats_orbit                2
+
+## 2. The declaration holds on a SECOND boot over a persistent sqlite file (no --fresh)
+2026-09-07T19:46:42.011Z INFO [Seeder] Seed loading complete {"inserted":0,"updated":7,"skipped":811,"errored":0}
+2026-09-07T19:46:40.811Z INFO [ats] auth membership policy declared 'invite-only' (was 'auto') in init() — DESIGN.md §03: sign-up and the ADR-0093 D6 backfill bind nobody to the default organization. An explicit auth.membership_policy setting or OS_AUTH_MEMBERSHIP_POLICY still overrides this at kernel:ready.
+#  sys_member read straight out of the file is unchanged across the two boots: 32 = 30 employer
+#  staff + the platform owner + the one user the admin create-user probe (section 3) created.
+# direct sqlite read — /tmp/claude-0/-home-user/b5e239b4-1c2d-5c61-92c7-2d1a1706b178/scratchpad/issue-38/ats38.db
+sys_member total: 32
+sys_user  total: 114
+per organization:
+  org_ats_brightmarket         3
+  org_ats_cedarbrook           3
+  org_ats_harborline           3
+  org_ats_lumenvale            3
+  org_ats_quillstone           3
+  org_ats_summitridge          3
+  org_ats_bluewater            2
+  org_ats_ironbridge           2
+  org_ats_meridian             2
+  org_ats_orbit                2
+  org_ats_pixelforge           2
+  org_ats_swiftroute           2
+  org_mtrngrqg5miihcxu         2
+setting tables: ["sys_setting","sys_setting_audit"]
+  sys_setting: 0 row(s); mentioning "membership": 0
+  sys_setting_audit: 0 row(s); mentioning "membership": 0
+
+## 3. UPSTREAM: the admin create-user endpoint binds regardless of the policy
+#  plugin-auth/src/admin-user-endpoints.ts, bindUserToSoleOrganization() calls
+#  reconcileMembership(engine, userId, { policy: 'auto', ... }) with the policy HARD-CODED,
+#  so it never reads getMembershipPolicy(). Measured on the branch, sqlite, invite-only:
+POST /api/v1/auth/admin/create-user (probe.1788810309814@mail.example) → HTTP 200 {"success":true,"data":{"user":{"id":"raaDvTKgNbjzngvweCrTt1RuC0u6prST","email":"probe.1788810309814@mail.example","name":"Membership Probe"},"placeholderEmail":false,"mustChangePassword":true,"organizationId":"org_mtrngrqg5miihcxu","membershipCreated":true}}
+sys_member AFTER  create-user: total=2 hasMore=false len=2 consistent=true
+delta: 1
+new user session activeOrganizationId="org_mtrngrqg5miihcxu"
+#  Reported, not fixed here: it is upstream, and it is arguably right (an operator creating an
+#  account IS an invitation) — but it is not what ADR-0093 D1's 'the ONE source both membership
+#  paths read' says, and on this app it puts a Setup-created user in the Default Organization
+#  even though the deployment says invite-only. The demo never calls it.

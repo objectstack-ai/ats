@@ -118,8 +118,12 @@ permission set (DESIGN.md §04).
 Each one is measured, with the measurement in the issue. None is hidden by the demo.
 
 - [#39](https://github.com/objectstack-ai/ats/issues/39) — on the default (sqlite) driver the four
-  tenancy-scoped objects return no rows to the platform personas; run the demo on
-  `--database-driver memory` (upstream [objectstack#16589](https://github.com/objectstack-ai/objectstack/issues/16589)).
+  tenancy-scoped objects (`ats_employer`, `ats_employer_member`, `ats_interview`, `ats_offer`) return
+  no rows to a session whose active organization is the Default Organization. Since the app declares
+  `membershipPolicy: 'invite-only'` that is the platform **owner** (`admin@objectos.ai`) alone; the
+  `admin@platform.example` and `ops@platform.example` personas hold no membership and read all four on
+  either driver. Sign in as those two, or run the demo on `--database-driver memory`
+  (upstream [objectstack#16589](https://github.com/objectstack-ai/objectstack/issues/16589)).
 - [#45](https://github.com/objectstack-ai/ats/issues/45) — an employer administrator cannot yet
   *create* a job (blocked upstream on
   [objectstack#16607](https://github.com/objectstack-ai/objectstack/issues/16607) and
