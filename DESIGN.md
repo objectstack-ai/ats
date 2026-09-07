@@ -300,6 +300,12 @@ record.id in current_user.applicant_candidate_ids       本机构申请人
 | F5 | `credential_expiry_reminder` | 定时（日）| 扫 `is_expiring`，提醒候选人；雇主端标红即将失效的在职候选人 |
 | F6 | `interview_reminder` | 定时（时）| T-24h 给候选人与面试官各发一次 |
 
+⛔ **F5 / F6 目前在真实 cron 路径上投不出去**（2026-09-07 实测，两个驱动一致）。筛选、时间窗、打标（`reminder_sent` / `expiry_reminded_at`）、去重**全部正确**，但调度触发的 run **不携带组织**，`notify` 以无组织身份发出，租户域的收件箱写入随即被 objectql **#8844** 规则拒绝——即 §03 开头引用的同一条规则，只是这次从**写入侧**触发：*系统上下文写入租户域对象必须携带组织，而本安装声明 `single` posture 却持有 2 个组织*。症状是 `sys_inbox_message` 空着而 `reminder_sent = 1`：**一个看起来健康、实际什么都没送达的部署**。
+
+本仓库无法自行接上组织（`NotifyConfigSchema` 没有 organization 键，两个调度触发器都不设 `tenantId`）。上游 [objectstack#16659](https://github.com/objectstack-ai/objectstack/issues/16659)，本仓库跟踪 [#56](https://github.com/objectstack-ai/ats/issues/56)。**F4 不受影响**——它由用户会话触发，会话带着组织，实测候选人能在自己的收件箱读到。
+
+⚠️ 写这一段是因为「声明了但不生效」正是这个项目反复栽的那一类（#18、#13、#32）。这次它被找出来并报备了；把 F5/F6 描述成能触达用户而不加这段，就等于亲手再造一个。
+
 ## 06 种子数据
 
 | 对象 | 条数 | 要点 |
