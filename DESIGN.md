@@ -77,17 +77,17 @@ ats_job        [public_read] ats_offer      [private]    ats_skill              
 
 | 强度 | 对象 | 机制 |
 |---|---|---|
-| **硬隔离** | candidate · application · offer · employer · report | `private` + `readScope: 'org'` + RLS。雇主侧经 `employer_org IN (current_user.accessible_org_ids)` 判定；求职者侧按 `user` / `candidate_user` 自持。越权可读即事故。 |
+| **硬隔离** | candidate · application · offer · employer · report | `private` + `readScope: 'org'` + RLS。雇主侧经 `record.employer_org in current_user.employer_org_ids` 判定（`employer_org_ids` 由应用自有的 membership resolver 转发内核算好的 `accessible_org_ids`，见下）；求职者侧按 `user` / `candidate_user` 自持。越权可读即事故。 |
 | **软过滤** | job | `public_read` + 视图过滤 + FLS。岗位终将公开；草稿/待审靠列表条件与 App 导航隐藏，`review_note` 靠 FLS。**刻意降级，非遗漏**（见 08 Q1）。 |
 | 公开字典 | skill · credential_type | `public_read`，写权限仅平台角色。 |
 
 ### 雇主身份怎么传给 RLS —— 裁决记录（2026-09-06）
 
-**雇主 = 平台组织。** 每个雇主对应一个 organization，其员工是该组织成员；雇主侧对象上反范式一个 `employer_org` 标量，谓词写 `employer_org IN (current_user.accessible_org_ids)`。
+**雇主 = 平台组织。** 每个雇主对应一个 organization，其员工是该组织成员；雇主侧对象上反范式一个 `employer_org` 标量，谓词写 `record.employer_org in current_user.employer_org_ids`（`ats_employer` 上是 `record.organization`）。
 
-**为什么不能按原设计"经 `ats_employer_member` 判定"**：RLS 谓词是 canonical CEL，只能把**字段**与 `current_user.*` 占位符比较，**跨对象 traversal 是编译错误**（ADR-0055）。"当前用户是不是这行雇主的成员"表达不了。可用占位符仅 `id` / `email` / `organization_id` / `accessible_org_ids` / `org_user_ids` / `positions`。
+**为什么不能按原设计"经 `ats_employer_member` 判定"**：RLS 谓词是 canonical CEL，只能把**字段**与 `current_user.*` 占位符比较，**跨对象 traversal 是编译错误**（ADR-0055）。"当前用户是不是这行雇主的成员"表达不了。RLS 编译器实际填入的占位符只有 `id` / `email` / `organization_id` / `org_user_ids` / `positions`，加上 membership resolver 声明的自有键；`accessible_org_ids` 虽在保留名单里，编译器并不填它（见下节）。
 
-**为什么用 `accessible_org_ids` 而不是 `organization_id`**：前者是调用者的**全部**组织成员集（ADR-0105 D2），一个服务两家雇主的招聘顾问无需切换上下文即可同时看到两边；无有效成员资格解析为空集，谓词 fail-closed 到零行，绝不 fail-open。
+**为什么用全部成员组织集合（`accessible_org_ids`，谓词里以 `employer_org_ids` 到场）而不是 `organization_id`**：前者是调用者的**全部**组织成员集（ADR-0105 D2），一个服务两家雇主的招聘顾问无需切换上下文即可同时看到两边；无有效成员资格解析为空集，谓词编译成 `$in: []`，fail-closed 到零行，绝不 fail-open。
 
 **为什么当时判断「对象不开 `tenancy`」**：那道 Layer 0 墙按组织判定，会连带把求职者**自己的投递**也挡住 —— 求职者不是任何雇主组织的成员。业务 RLS 允许两类受众对同一批行各带各的策略，这才是 marketplace 的形状。
 
@@ -97,20 +97,37 @@ ats_job        [public_read] ats_offer      [private]    ats_skill              
 
 **遗留的运维前提**：雇主入驻时需创建对应 organization 并把员工加为成员（`sys_organization` / `sys_member`）。M1 由种子数据承担，正式流程挂在 F1 机构资质审核通过之后 —— 已记入卡 11。
 
-### ⚠️ 现状：`accessible_org_ids` 在 RLS 里解析不出来（2026-09-07）
+### `accessible_org_ids` 在 RLS 里解析不出来 —— 应用自有 resolver 转发（2026-09-07 裁决，#18）
 
-**上面这套雇主侧谓词今天是失效的。**平台的 `RLSUserContext`（`plugin-security/src/rls-compiler.ts:43`）只声明
-`id` / `organization_id` / `positions` / `org_user_ids` / `email`，**从不把 `accessible_org_ids` 填进去**；
+**问题。** 平台的 `RLSUserContext`（`plugin-security/src/rls-compiler.ts:43`）只声明
+`id` / `organization_id` / `positions` / `org_user_ids` / `email` 加 membership 袋，**从不把 `accessible_org_ids` 填进去**；
 而它又在 `RESERVED_RLS_MEMBERSHIP_KEYS` 里，应用侧的 membership resolver 被禁止提供它
-（ADR-0105 D11 的原话是「core-resolved, not an app resolver」）。
+（ADR-0105 D11 的原话是「core-resolved, not an app resolver」）。变量解析不出 → 策略被丢弃 → `RLS_DENY_FILTER` → **静默零行，不报错**。
+**改 CEL 拼写修不好它**：`record.employer_org in current_user.accessible_org_ids` 与 SQL 桥接写法一样解析不出（#18 两种拼写都实测过；
+日志里的 DEPRECATED 方言警告是叠在 DENY 之上的另一件事）。已上报 [objectstack#16518](https://github.com/objectstack-ai/objectstack/issues/16518)，
+它保持 open：保留一个没人填的键仍是缺陷，下面的转发是应用在绕过它，不是关闭它的理由。
 
-变量解析不出 → 策略被丢弃 → `RLS_DENY_FILTER` → **静默返回零行，不报错**。
+**机制。** 保留名单挡的是**名字**，不是能力。`IRlsMembershipResolver`（`@objectstack/spec` 的 `contracts/rls-membership-resolver`）
+在每次请求时**收到** `accessible_org_ids` 作为输入 —— 内核算好后交给 resolver，只是从不交给编译器。所以本仓库自有一个 resolver
+（`src/security/rls-membership-resolver.ts`）把同一个集合以 `employer_org_ids` 之名重新发布，十条雇主侧策略据此写
+`record.employer_org in current_user.employer_org_ids`（`ats_employer` 上 `record.organization`），`check` 子句同。
+不发明数据、不放宽任何授权：集合就是内核已经解析的那一个；无成员资格的调用者得到空集，谓词编译成 `$in: []`，fail-closed 到零行。
 
-后果：`permission-sets.ts` 里**每一条**雇主侧策略对非平台角色都 fail-closed。平台角色不受影响，
-因为它们持 `viewAllRecords`（读旁路）。已上报 [objectstack#16518](https://github.com/objectstack-ai/objectstack/issues/16518)，
-本仓库跟踪于 #18。**改 CEL 拼写修不好它** —— 规范写法和 SQL 桥接写法都一样解析不出。
+**为什么应用要自己拥有一个 resolver，而不是直接用 `accessible_org_ids`。** 因为那个名字在 RLS 里根本不到场（上面的问题），
+又被保留、不许应用提供；能到场的只有 resolver 声明的自有键。`employer_org_ids` 不与任何具名上下文字段冲突，是契约文档明文允许的形状。
 
-在它解决前：雇主侧的隔离是**已声明未生效**状态，任何以雇主身份的演示都会看到空列表。
+**注册锚点（cli 17.3.0 实测）。** plugin-security 在自己的 `start()` 里**只读一次** `rls-membership-resolver` 服务并缓存。
+`onEnable` 由 AppPlugin 的 `start()` 调用，而 CLI 把 security plugin 排在应用之前：从 `onEnable` 注册**能注册、但太晚**
+（内核记录了服务注册，security plugin 没看见，DENY 照旧）。内核先跑完所有插件的 `init()` 再跑任何 `start()`，
+所以 resolver 由 `objectstack.config.ts` 的 `plugins: [AtsRlsMembershipResolverPlugin]` 在 `init()` 注册 —— 应用包唯一拥有的 Phase 1 缝隙。
+仓内代码，不新增依赖。
+
+**现状（2026-09-07）。** 变量已解析：`--log-level debug` 下 `[RLS] DENY (fail closed)` / `unresolved-variable` 为零，
+雇主管理员读到且只读到本机构那一行 `ats_employer`，向他人机构范围写入被 `check` 子句拒绝。
+消融（策略退回旧拼写、resolver 仍在）把一切打回零行并让 DENY 重现 —— 这个验证是能失败的。
+但 `ats_job` / `ats_application` / `ats_offer` / `ats_employer_member` 对雇主仍是零行：**不是策略的问题**，是 stamp hook 把**任意一家**雇主的组织
+写到了每一行上（所有 job 的 `employer_org` 都是 `org_ats_orbit`），见 #43。把 stamp 中和后的探针读数正是验收数字
+（Quillstone 5 job / 27 application / 2 offer，Harborline 5 / 31 / 2，互见零），所以 #43 修好后这里不用再改。
 
 ### 租户墙划分契约（2026-09-07 裁决）
 
