@@ -1,6 +1,7 @@
 import type { Seed } from '@objectstack/spec/data';
 import { seeds as demoEn } from './demo-en/index.js';
 import { seeds as demoZh } from './demo-zh/index.js';
+import { createDemoSeedGatePlugin, scopeToDemo } from './demo-seed-gate.js';
 
 /**
  * Demo seed selection.
@@ -21,10 +22,26 @@ import { seeds as demoZh } from './demo-zh/index.js';
  * Read through `globalThis` rather than a bare `process`: this app does not
  * depend on Node typings, and the config must also evaluate where `process`
  * is absent.
+ *
+ * ## Demo only — never production (#42)
+ *
+ * Whichever set is selected is scoped `env: ['dev', 'test']` by
+ * `scopeToDemo`, so the seed loader drops all of it — the 794 ATS/identity
+ * rows AND the 7 `sys_account` logins whose passwords are in the README — on
+ * any boot whose `NODE_ENV` resolves to production. `objectstack dev` sets
+ * `NODE_ENV=development` and seeds; `objectstack start`/`serve` set
+ * `NODE_ENV=production` when unset and skip, saying so on a warn line that
+ * names the toggle. The rule, its evidence and its alternatives are in
+ * `demo-seed-gate.ts`.
  */
 const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
 const requested = (env?.OS_SEED_LOCALE ?? 'en').trim().toLowerCase();
 
 export const seedLocale: 'en' | 'zh' = requested.startsWith('zh') ? 'zh' : 'en';
 
-export const data: Seed[] = seedLocale === 'zh' ? demoZh : demoEn;
+export const data: Seed[] = scopeToDemo(seedLocale === 'zh' ? demoZh : demoEn);
+
+/** Boot-time notice for the gate above; registered under `plugins` in `objectstack.config.ts`. */
+export const AtsDemoSeedGatePlugin = createDemoSeedGatePlugin(data);
+
+export { DEMO_SEED_ENVS } from './demo-seed-gate.js';

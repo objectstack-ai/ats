@@ -1,6 +1,6 @@
 import { defineStack } from '@objectstack/spec';
 import * as objects from './src/objects/index.js';
-import { data } from './src/data/index.js';
+import { data, AtsDemoSeedGatePlugin } from './src/data/index.js';
 import * as views from './src/views/index.js';
 import { allHooks } from './src/hooks/index.js';
 import * as flows from './src/flows/index.js';
@@ -53,6 +53,8 @@ export default defineStack({
   objects: Object.values(objects),
 
   // Data — the demo seed; `OS_SEED_LOCALE` selects demo-en (default) or demo-zh.
+  // Scoped to dev/test: a production boot loads none of it, logins included
+  // (src/data/demo-seed-gate.ts, #42).
   data,
 
   // UI — the views each app navigates to (card 07 employer, card 08 platform/seeker).
@@ -92,7 +94,11 @@ export default defineStack({
   // reads the resolver once in its `start()`, before the app's `onEnable`
   // runs, so only a plugin's `init()` (Phase 1) lands the service in time.
   // In-repo code, no new package (see rls-membership-resolver.ts).
-  plugins: [AtsRlsMembershipResolverPlugin],
+  //
+  // The demo-seed gate plugin only logs: one line per boot saying whether the
+  // demo seed (and its 7 logins) loads under this NODE_ENV, and what toggles
+  // it — warn when skipped, because the CLI's default log level hides info.
+  plugins: [AtsRlsMembershipResolverPlugin, AtsDemoSeedGatePlugin],
 });
 
 /**

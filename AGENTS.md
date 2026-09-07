@@ -26,6 +26,34 @@ pnpm typecheck
 located, corrective message. **Never report a change as done, and never open a PR, until all three pass.**
 Paste the three green tails into the PR body.
 
+## Booting with the demo seed — read before you count rows
+
+The demo seed (`src/data/`, 801 rows incl. the 7 logins in `README.md`) is scoped `env: ['dev', 'test']`
+and loads **only when the boot's `NODE_ENV` resolves to development or test**. The CLI pins it for you:
+
+```bash
+npx objectstack build
+OS_PLATFORM_OWNER_EMAIL=admin@objectos.ai npx objectstack dev --fresh --database-driver memory -p <port> --log-level info
+```
+
+`objectstack dev` spawns `serve --dev`, which sets `NODE_ENV=development` when unset, so this seeds —
+no extra flag. `objectstack start` / `objectstack serve` set `NODE_ENV=production` when unset and seed
+**nothing**. Both states announce themselves; **never read zero rows as a fail-closed policy until you
+have checked the boot log for these lines**:
+
+| State | What the log says | Rows |
+|:--|:--|:--|
+| seeded | `INFO [ats] demo seed enabled: NODE_ENV=development …` then `[Seeder] Seed loading complete {"inserted":801,…,"errored":0}` | 80 `ats_candidate`, 7 sign-ins work |
+| skipped | `WARN [ats] demo seed skipped: NODE_ENV=production …` (replayed under the banner at the default log level) and, at `--log-level info`, `[SeedLoader] Environment 'prod': skipped 16 dataset(s) …` | 0 everywhere, every persona answers `Invalid email or password` |
+
+If you exported `NODE_ENV=production` in your shell, `objectstack dev` keeps it and you get the skipped
+state on purpose (add `OS_CRYPTO_AUTOKEY=1` to such a boot: production mode also arms the platform's
+crypto-key guard, and `--fresh` has no persisted key, so the server exits right after seeding without it —
+`objectstack start` sets that variable for itself). ⛔ Do not add `NODE_ENV=development` to the `dev` script or to the `objectstack dev`
+command line: `dev.ts` measures that it activates oclif's tsx source loader in the compile/serve children
+and breaks the boot; `serve --dev` already sets it in-process. Wait for the `[Seeder] Seed loading complete`
+line before counting — counting earlier also reads zero. Rule and evidence: `src/data/demo-seed-gate.ts`.
+
 ## Naming — binding
 
 | Context | Convention | Example |
