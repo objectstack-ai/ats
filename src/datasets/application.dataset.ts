@@ -27,7 +27,7 @@ import { defineDataset } from '@objectstack/spec/ui';
 export const ApplicationMetrics = defineDataset({
   name: 'ats_application_metrics',
   label: 'Application Metrics',
-  description: 'Applications by stage, source and week applied. Slice with a widget filter; one count measure.',
+  description: 'Applications by stage, source and week applied. Slice with a widget filter; a count and the average days to offer.',
   object: 'ats_application',
   dimensions: [
     { name: 'stage', field: 'stage', type: 'string', label: 'Stage' },
@@ -36,5 +36,17 @@ export const ApplicationMetrics = defineDataset({
   ],
   measures: [
     { name: 'application_count', aggregate: 'count', label: 'Applications' },
+    // The duration tile. `avg`, not median: the aggregate set is
+    // count/sum/avg/min/max/count_distinct and there is no median in it —
+    // DESIGN.md §04 asks for the average and this is it. It averages a STORED
+    // column (`ats_application.days_to_offer`, written once by the
+    // `afterInsert` hook on `ats_offer`) because a measure aggregates one
+    // column of one object, and the duration it reports spans two.
+    // `AVG` ignores NULLs, so applications that never reached an offer are
+    // absent from the denominator rather than counted as zero — which is the
+    // reading the tile wants. Slice it with the WIDGET's filter, like the
+    // count above; a measure-scoped `filter` is the shape the memory driver
+    // answers 501 to (see the header).
+    { name: 'avg_days_to_offer', aggregate: 'avg', field: 'days_to_offer', label: 'Avg Days to Offer', format: '0.0' },
   ],
 });

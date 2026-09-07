@@ -266,6 +266,92 @@ export const OfferStampHook = defineHook({
   },
 });
 
+/**
+ * `ats_offer` — stamp `ats_application.days_to_offer` when the FIRST offer on
+ * that application is written.
+ *
+ * ## Why a stored column at all
+ *
+ * "Average days to offer" (DESIGN.md §04) is a duration between `applied_at`
+ * on one object and `created_at` on another. A dataset measure aggregates ONE
+ * column of ONE object, and the only computed form combines OTHER MEASURES of
+ * the same dataset by name — there is no cross-object arithmetic to reach for.
+ * So the duration has to exist as a column before the semantic layer can
+ * average it, and this is where it gets written.
+ *
+ * ## Why `afterInsert`, and why it is immune to the #43 defect by construction
+ *
+ * The value is stamped exactly ONCE per application, on the insert of its
+ * first offer, and is never recomputed. That is a metric decision first —
+ * "time to offer" means time to the FIRST offer, so a re-issued offer must not
+ * move it — and it also removes the whole surface #43 was about: this hook
+ * subscribes to no `*Update` event, so `claimSeedOwnership`'s boot-time
+ * `update(ats_offer, { owner_id }, { where: { owner_id: null }, multi: true })`
+ * dispatches nothing here. There is no payload to inspect and no per-row
+ * recompute that a batch-scoped `SET` clause could smear across every matched
+ * row. The sibling handlers above, which DO subscribe to `beforeUpdate`, carry
+ * the `inserting || touched([...])` guard for exactly that reason; the guard
+ * that fits this one is `days_to_offer == null` on the target row.
+ *
+ * That guard is also what makes a re-boot on an existing database correct: the
+ * seed loader upserts, an offer that already exists is an UPDATE rather than an
+ * insert, and even a genuine re-insert finds the column already set and leaves
+ * it alone.
+ *
+ * ## The write, and what else it touches
+ *
+ * The update is by id (`update({ id, ... })` — the repository reads the key out
+ * of the payload), never a predicate write. It goes down the engine's normal
+ * path, so `ats_application`'s own `beforeUpdate` stamps run on it:
+ * `ApplicationStampHook` sees a payload naming neither a source field nor a
+ * derived one and re-derives nothing, but it does refresh `last_activity_at`,
+ * as it does for every write to an application. That costs nothing here —
+ * measured on a seeded sqlite boot, all 200 applications already carry a
+ * `last_activity_at` inside the same second, because that assignment is
+ * unconditional on `beforeInsert` too — and writing an offer IS activity on the
+ * application, so it is the right answer rather than a side effect to suppress.
+ *
+ * `runAs: 'system'`: a recruiter extending an offer is not necessarily allowed
+ * to edit that application row, and a cross-object write through `ctx.api` is
+ * gated by the TARGET object's rules. Same elevation the stamps above need,
+ * for the same reason.
+ */
+export const OfferTimeToOfferHook = defineHook({
+  name: 'ats_offer_time_to_offer',
+  object: 'ats_offer',
+  events: ['afterInsert'],
+  priority: 100,
+  runAs: 'system',
+  description: "Stamps days_to_offer on the offer's application, once, from applied_at to this offer's created_at.",
+  handler: async (ctx: HookContext) => {
+    const api = ctx.api;
+    if (!api) throw new Error('ats_offer_time_to_offer: ctx.api is unavailable, the application cannot be stamped');
+    const input = ctx.input as Row;
+    const written = (ctx.result != null && typeof ctx.result === 'object' && !Array.isArray(ctx.result) ? ctx.result : {}) as Row;
+
+    const applicationId = written.application ?? input.application;
+    if (typeof applicationId !== 'string' || applicationId === '') return;
+
+    const application = (await api.object('ats_application').findOne({ where: { id: applicationId } })) as Row | null;
+    if (!application) return;
+    // First offer wins — see the header. Also the re-boot / re-insert guard.
+    if (application.days_to_offer != null) return;
+
+    const msOf = (value: unknown): number => (value == null ? Number.NaN : new Date(value as string).getTime());
+    const appliedMs = msOf(application.applied_at);
+    // `created_at` is the platform's own audit stamp on the row just written;
+    // an `after*` handler runs close enough to it that "now" is the honest
+    // fallback when the driver did not echo it back.
+    const offerMs = msOf(written.created_at ?? new Date().toISOString());
+    if (!Number.isFinite(appliedMs) || !Number.isFinite(offerMs)) return;
+
+    // Whole elapsed days, floored: "it has been N days". Never negative — an
+    // offer dated before its application is bad data, not a negative duration.
+    const days = Math.max(0, Math.floor((offerMs - appliedMs) / 86400000));
+    await api.object('ats_application').update({ id: applicationId, days_to_offer: days });
+  },
+});
+
 /** `ats_candidate_credential` — title from the credential type and level. */
 export const CandidateCredentialStampHook = defineHook({
   name: 'ats_candidate_credential_stamp',

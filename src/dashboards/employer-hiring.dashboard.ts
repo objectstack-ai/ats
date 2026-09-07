@@ -8,22 +8,27 @@ import type { Dashboard } from '@objectstack/spec/ui';
  * filter: the analytics runtime applies the caller's read scope per object,
  * and every employer-side policy keys on the stamped `employer_org` (#44,
  * #46). Quillstone's administrator and Harborline's read different numbers
- * from the same three widgets, and platform staff read the whole marketplace.
+ * from the same widgets, and platform staff read the whole marketplace.
  *
- * Three of the card's four tiles are here. The fourth — "median days from
- * `applied_at` to the offer's `created_at` for hired applications" — is not
- * expressible as a dataset measure and is deliberately NOT approximated:
- *   - the semantic layer has no median (`count/sum/avg/min/max/count_distinct`),
- *     and the only computed form combines OTHER MEASURES, never two columns;
- *   - the duration lives across two objects and needs a stored column
- *     (`ats_application.days_to_offer`, stamped when the offer is written),
- *     which is an object + hook change outside this card;
- *   - the demo seed does now carry one `accepted` offer per hired application
- *     (#53 — before it, all 14 offers sat on `offer`-stage applications and the
- *     tile would have read empty), so what keeps the tile out is the two
- *     reasons above, not the data.
- * The pipeline-by-stage bar takes its place so the surface shows the same
- * scoping at a glance; the tile returns with a card that adds the column.
+ * All four of the card's tiles are here. The fourth — "Average Days to
+ * Offer" — reads `avg(ats_application.days_to_offer)` over this employer's
+ * HIRED applications, and it took three things that did not exist when the
+ * dashboard was first built:
+ *   - a STORED column. `days_to_offer` is a duration between `applied_at` on
+ *     the application and `created_at` on the offer; a dataset measure
+ *     aggregates one column of one object and its only computed form combines
+ *     OTHER MEASURES by name, so the duration had to become a column before
+ *     the semantic layer could touch it. It is written once, by the
+ *     `afterInsert` hook on `ats_offer` (`src/hooks/stamp.hook.ts`).
+ *   - `avg`, not median. The aggregate set is
+ *     `count/sum/avg/min/max/count_distinct`; DESIGN.md §04 asks for the
+ *     average (「平均到 Offer 天数」) and that is what this reports.
+ *   - the seed. Nine `accepted` offers, one per hired application (#53/#64) —
+ *     before them the tile would have been an empty average over zero rows.
+ * `AVG` ignores NULLs, so the denominator is the hired applications that
+ * actually reached an offer, not every hired row. The stage filter is a
+ * WIDGET filter (the query's WHERE), never a measure-scoped one: the memory
+ * driver answers `501 NOT_IMPLEMENTED` to a conditional aggregate.
  *
  * "This week" is Monday 00:00 (`{current_week_start}`) up to but excluding
  * next Monday (`{next_week_start}`): `*_end` macros are calendar days, and
@@ -32,7 +37,7 @@ import type { Dashboard } from '@objectstack/spec/ui';
 export const EmployerHiringDashboard: Dashboard = {
   name: 'ats_employer_hiring',
   label: 'Hiring Overview',
-  description: 'Your open jobs, applications awaiting action, interviews this week and the pipeline by stage.',
+  description: 'Your open jobs, applications awaiting action, interviews this week, average days to offer and the pipeline by stage.',
   columns: 12,
   gap: 4,
   header: { showTitle: true, showDescription: true },
@@ -72,6 +77,18 @@ export const EmployerHiringDashboard: Dashboard = {
       options: { icon: 'calendar-clock' },
     },
     {
+      id: 'avg_days_to_offer',
+      type: 'kpi',
+      title: 'Average Days to Offer',
+      description: 'Applied to first offer, over your hired applications.',
+      dataset: 'ats_application_metrics',
+      values: ['avg_days_to_offer'],
+      filter: { stage: 'hired' },
+      colorVariant: 'success',
+      layout: { x: 0, y: 2, w: 4, h: 2 },
+      options: { icon: 'timer' },
+    },
+    {
       id: 'pipeline_by_stage',
       type: 'bar',
       title: 'Pipeline by Stage',
@@ -86,7 +103,7 @@ export const EmployerHiringDashboard: Dashboard = {
         series: [{ name: 'application_count', label: 'Applications' }],
         showLegend: false,
       },
-      layout: { x: 0, y: 2, w: 12, h: 5 },
+      layout: { x: 0, y: 4, w: 12, h: 5 },
     },
   ],
 };

@@ -14,7 +14,7 @@ the apps from card 09. Load `objectstack-ui` (dashboards, charts) and `objectsta
 - **`ats_hiring_funnel`**: funnel over `ats_application.stage` counts applied→screening→interview→offer→hired
   (exclude rejected/withdrawn from the funnel; show them as a separate tile); conversion % between stages.
 - **`ats_employer_hiring`** (scoped by RLS to the viewer's employer automatically): open jobs, applications
-  awaiting action (`stage in ['applied','screening']`), interviews this week, median days from
+  awaiting action (`stage in ['applied','screening']`), interviews this week, average days from
   `applied_at` to offer `created_at` for hired applications.
 Every widget binds to a dataset field that exists — `pnpm validate` checks widget bindings.
 
