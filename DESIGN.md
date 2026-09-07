@@ -12,7 +12,7 @@
 | 单企业 ATS | 一家公司的 HR，管自己的招聘 | Greenhouse · Lever · Moka | 否 |
 | **平台型招聘** | 平台方运营，多雇主入驻，候选人求职 | BOSS 直聘 · 前程无忧 | **是** |
 
-选平台型的理由：开源里几乎空白；只入驻一个雇主它就退化为单企业 ATS；它正好压在 ObjectStack 的强项上（跨租户 RLS、审批链、审计、一套元数据三个受众端）。
+选平台型的理由：开源里几乎空白；只入驻一个雇主它就退化为单企业 ATS；它正好压在 ObjectStack 的强项上（跨租户 RLS、审批链、审计、一套元数据三组受众分区）。
 
 **范围内**：岗位发布与审核 · 投递与阶段流转 · 面试排期与评价 · Offer 与审批 · 候选人档案与持证 · 人才库检索 · 举报与处置 · 平台治理与看板。
 **范围外**：课程/考试（LMS）· IM 与社区 · 直播 · 支付 · 薪酬绩效与人事档案 · 简历解析与匹配算法。
@@ -21,7 +21,7 @@
 
 ## 02 对象模型
 
-前缀 `ats_`（Applicant Tracking System）。11 个对象，三个域，各对应一个受众端。
+前缀 `ats_`（Applicant Tracking System）。11 个对象，三个域，各对应一组受众分区。
 
 ```
 雇主域                      招聘事务域                   候选人域
@@ -182,15 +182,32 @@ Layer 0 墙不是全有全无的。`plugin-security/src/security-plugin.ts:2940`
 | `ats_candidate.expected_salary_*` | employer_admin · employer_recruiter | 期望薪资先于议价暴露损害候选人；候选人可经 `profile_visibility` 自主放开 |
 | `ats_job.review_note` · `ats_employer.verification_note` | 所有雇主侧与求职者角色 | 平台内部意见，驳回理由走独立字段回传 |
 
-## 04 视图与三端
+## 04 视图与受众端
 
-同一套对象元数据，三个 App 靠 `requiredPermissions` 与导航门控切分。
+> **修订（2026-09-07）：三个 App 改为一个 App、三组受众分区。**
+> 平台强制**一个 `type: 'app'` 包最多定义一个 App** —— `defineStack` 直接抛错
+> （`stack.zod.ts:1418`，ADR-0019 D3：*「聚合多个插件的垂直方案必须收敛为一个 App，其内部插件不可见；
+> 真正想要独立产品的开发者应当发布独立的 App，而绝不是一个暴露 N 个 app 的包装」*）。
+> 原设计的三 App 形态在这个包里无法存在，本节据此重写。ADR-0019 D3 给的另一条路是拆成三个独立包，
+> 已否决：对一个共享同一套对象的市场应用来说那是仓库级重构，且三端本就共用元数据。
 
-| App | 导航 | 主视图 |
-|---|---|---|
-| `ats_admin_app` 平台运营端 | 待审队列 · 雇主 · 岗位 · 举报处置 · 字典维护 · 平台看板 | 雇主待审 grid · 岗位待审 grid · 举报 grid · 平台总览 dashboard |
-| `ats_employer_app` 雇主端 | 岗位 · 招聘看板 · 简历收件箱 · 面试日历 · 人才库 · 本机构看板 | **招聘看板** kanban(groupBy stage) · **面试日历** calendar(scheduled_at) · 收件箱 grid×5 listView · 人才库 grid + gallery |
-| `ats_seeker_app` 求职者端 | 找工作 · 我的投递 · 我的面试 · 我的档案 · 我的证书 | 职位检索 grid · 我的投递 timeline · 我的面试 calendar · 档案 form |
+一个 App `ats`，导航按受众分成三组，每组用 `requiredPermissions` 门控 —— 用户看不到的组由服务端剔除，
+空组自动折叠。**这不是降级，是平台自己的处方**：消费者面只有一个 App。
+
+| 受众分区 | 门控能力 | 导航 | 主视图 |
+|---|---|---|---|
+| 平台运营 | `ats_platform.access` | 待审队列 · 雇主 · 岗位 · 举报处置 · 字典维护 · 平台看板 | 雇主待审 grid · 岗位待审 grid · 举报 grid · 平台总览 dashboard |
+| 雇主 | `ats_employer.access` | 岗位 · 招聘看板 · 简历收件箱 · 面试日历 · 人才库 · 本机构看板 | **招聘看板** kanban(groupBy stage) · **面试日历** calendar(scheduled_at) · 收件箱 grid×5 listView · 人才库 grid + gallery |
+| 求职者 | `ats_seeker.access` | 找工作 · 我的投递 · 我的面试 · 我的档案 · 我的证书 | 职位检索 grid · 我的投递 timeline · 我的面试 calendar · 档案 form |
+
+能力由权限集的 `systemPermissions` 授予：`ats_platform.access` 挂 `ats_platform_admin` 与 `ats_platform_ops`；
+`ats_employer.access` 挂 `ats_employer_admin` 与 `ats_employer_recruiter`；`ats_seeker.access` 挂 `ats_job_seeker`。
+⚠️ `requiredPermissions` 引用一个未注册的能力时，`validate` 只给 `capability-reference-unknown` **警告**，
+运行时 fail-closed —— 也就是说漏授权的表现是「导航项静默消失」，不是报错。
+
+> **求职者分区的现实定位**：如 §03 所记，求职者门户最终是独立前端（浏览要 SEO、要移动端、要品牌），
+> Console 里的这一组是给内部与调试用的兜底，不是产品面。
+
 
 **公开投递入口**：岗位详情挂 `sharing: { enabled: true, allowAnonymous: true }` 的公开表单视图，授权由表单声明推导，只接受白名单字段。
 
@@ -227,7 +244,7 @@ Layer 0 墙不是全有全无的。`plugin-security/src/security-plugin.ts:2940`
 objectstack.config.ts      defineStack 装配入口，engines.protocol '^17'
 src/objects/               11 个 *.object.ts
 src/views/                 看板 / 日历 / 收件箱 / 人才库 / 公开投递表单
-src/apps/                  3 个受众端
+src/apps/                  1 个 App，三组受众分区（ADR-0019 D3）
 src/flows/  src/jobs/      F1–F6
 src/dashboards/            3 个看板 + dataset
 src/security/              5 positions · 5 permission sets · RLS · FLS · onEnable 绑定
