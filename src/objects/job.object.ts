@@ -129,7 +129,7 @@ export const Job = ObjectSchema.create({
 
     // ── Lifecycle ───────────────────────────────────────────────────────
     status: Field.select({
-      label: 'Status',
+      label: 'Review status',
       required: true,
       defaultValue: 'draft',
       options: [
