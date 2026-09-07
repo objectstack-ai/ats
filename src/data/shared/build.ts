@@ -11,6 +11,10 @@
  * `employer`, `employer_org`, `candidate_user` — because a seed row does not
  * go through the stamp hooks (`skipTriggers`), and a seed that leaned on them
  * would break silently the day a hook changed.
+ *
+ * The kernel's tenant column `organization_id` is written explicitly as well,
+ * on the four objects that stay inside the Layer 0 tenant wall (DESIGN.md §03,
+ * tenancy wall split contract) — see `TenantScopedSeedRecordOf` below.
  */
 
 import { defineSeed } from '@objectstack/spec/data';
@@ -47,6 +51,21 @@ import type { LocalePack } from './pack.js';
 /** The record shape `defineSeed(objectDef, …)` accepts for one object — field keys checked at compile time. */
 type SeedRecordOf<T extends { name: string; fields: Record<string, unknown> }> =
   Parameters<typeof defineSeed<T>>[1]['records'][number];
+
+/**
+ * A seed row of an object that stays INSIDE the Layer 0 tenant wall
+ * (DESIGN.md §03, tenancy wall split contract): `ats_employer` ·
+ * `ats_employer_member` · `ats_interview` · `ats_offer`. A system-context
+ * insert on a tenant-scoped object must name the organization that owns the
+ * row (objectql #8844), and the column it names is the kernel-injected
+ * `organization_id` — not an authored field, so `SeedRecordOf` cannot see it
+ * and the record type gains it here instead of a cast at the write site. The
+ * value is the organization's ID (`orgId`), the same value `employer_org`
+ * carries; `sys_member.organization_id` uses the slug only because there the
+ * column is a lookup the loader resolves by natural key.
+ */
+type TenantScopedSeedRecordOf<T extends { name: string; fields: Record<string, unknown> }> =
+  SeedRecordOf<T> & { organization_id: string };
 
 // ── Identity keys ────────────────────────────────────────────────────────────
 //
@@ -211,7 +230,7 @@ export function buildUserPositions(): SeedRecordOf<typeof SysUserPosition>[] {
 
 // ── Employer domain ──────────────────────────────────────────────────────────
 
-export function buildEmployers(pack: LocalePack): SeedRecordOf<typeof Employer>[] {
+export function buildEmployers(pack: LocalePack): TenantScopedSeedRecordOf<typeof Employer>[] {
   return EMPLOYERS.map((e, i) => {
     const t = pack.employers[i]!;
     return {
@@ -227,19 +246,21 @@ export function buildEmployers(pack: LocalePack): SeedRecordOf<typeof Employer>[
       service_tier: e.serviceTier,
       service_expires_at: daysFromNow(e.serviceExpiresInDays),
       organization: orgId(e.slug),
+      organization_id: orgId(e.slug),
       owner: adminEmail(e.slug),
     };
   });
 }
 
-export function buildEmployerMembers(pack: LocalePack): SeedRecordOf<typeof EmployerMember>[] {
-  const rows: SeedRecordOf<typeof EmployerMember>[] = [];
+export function buildEmployerMembers(pack: LocalePack): TenantScopedSeedRecordOf<typeof EmployerMember>[] {
+  const rows: TenantScopedSeedRecordOf<typeof EmployerMember>[] = [];
   EMPLOYERS.forEach((e, i) => {
     const staff = pack.staff[i]!;
     const employer = employerName(pack, i);
     rows.push({
       display_name: `${staff.admin} · admin`,
       employer,
+      organization_id: orgId(e.slug),
       user: adminEmail(e.slug),
       access_level: 'admin',
       is_active: true,
@@ -248,6 +269,7 @@ export function buildEmployerMembers(pack: LocalePack): SeedRecordOf<typeof Empl
       rows.push({
         display_name: `${staff.recruiters[slot]!} · recruiter`,
         employer,
+        organization_id: orgId(e.slug),
         user: recruiterEmail(e.slug, slot),
         access_level: 'recruiter',
         is_active: true,
@@ -357,7 +379,7 @@ export function buildApplications(pack: LocalePack): SeedRecordOf<typeof Applica
   });
 }
 
-export function buildInterviews(pack: LocalePack): SeedRecordOf<typeof Interview>[] {
+export function buildInterviews(pack: LocalePack): TenantScopedSeedRecordOf<typeof Interview>[] {
   return INTERVIEWS.map((iv) => {
     const a = APPLICATIONS[iv.application]!;
     const { index: employerIndex, row: e } = employerOf(a.job);
@@ -374,6 +396,7 @@ export function buildInterviews(pack: LocalePack): SeedRecordOf<typeof Interview
     return {
       display_name: `${candidateName(pack, a.candidate)} · R${iv.round}`,
       application: applicationName(pack, a),
+      organization_id: orgId(e.slug),
       round: iv.round,
       scheduled_at: dayAt(iv.day, iv.hour, iv.minute),
       duration_minutes: iv.durationMinutes,
@@ -385,7 +408,7 @@ export function buildInterviews(pack: LocalePack): SeedRecordOf<typeof Interview
   });
 }
 
-export function buildOffers(pack: LocalePack): SeedRecordOf<typeof Offer>[] {
+export function buildOffers(pack: LocalePack): TenantScopedSeedRecordOf<typeof Offer>[] {
   return OFFERS.map((o) => {
     const a = APPLICATIONS[o.application]!;
     const job = JOBS[a.job]!;
@@ -398,6 +421,7 @@ export function buildOffers(pack: LocalePack): SeedRecordOf<typeof Offer>[] {
       application: name,
       employer: employerName(pack, employerIndex),
       employer_org: orgId(e.slug),
+      organization_id: orgId(e.slug),
       candidate_user: candidateUserId(a.candidate),
       salary,
       salary_period: job.salaryPeriod,
