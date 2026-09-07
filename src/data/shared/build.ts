@@ -15,6 +15,11 @@
  * The kernel's tenant column `organization_id` is written explicitly as well,
  * on the four objects that stay inside the Layer 0 tenant wall (DESIGN.md §03,
  * tenancy wall split contract) — see `TenantScopedSeedRecordOf` below.
+ *
+ * Sign-in: the seeded people are directory rows, except the handful in
+ * `personas.ts`, which also get a `sys_account` credential (`buildAccounts`)
+ * and, for the two platform staff, a platform position — so the demo can be
+ * walked as a real persona, not only as the platform owner.
  */
 
 import { defineSeed } from '@objectstack/spec/data';
@@ -32,8 +37,21 @@ import { Interview } from '../../objects/interview.object.js';
 import { Offer } from '../../objects/offer.object.js';
 import { Report } from '../../objects/report.object.js';
 
-import { SysMember, SysOrganization, SysUser, SysUserPosition } from './sys-objects.js';
+import { SysAccount, SysMember, SysOrganization, SysUser, SysUserPosition } from './sys-objects.js';
 import { EmployerAdminPosition, EmployerRecruiterPosition, JobSeekerPosition } from '../../security/positions.js';
+import {
+  PLATFORM_ADMIN,
+  PLATFORM_OPS,
+  adminEmail,
+  candidateEmail,
+  candidateKey,
+  candidateUserId,
+  orgId,
+  orgSlug,
+  recruiterEmail,
+  staffUserId,
+} from './identity.js';
+import { PLATFORM_OWNER, SIGNABLE_EMAILS, SIGNABLE_PERSONAS } from './personas.js';
 import {
   CREDENTIALS,
   CREDENTIAL_TYPES,
@@ -69,22 +87,20 @@ type TenantScopedSeedRecordOf<T extends { name: string; fields: Record<string, u
 
 // ── Identity keys ────────────────────────────────────────────────────────────
 //
-// Locale-independent on purpose: the same person and organization carry the
-// same id, e-mail and slug in every locale, so `demo-zh` really is the same
-// row set with different display strings.
+// Live in `identity.ts` (shared with `personas.ts`); re-exported so nothing
+// that reads them off this module has to move.
 
-const pad2 = (n: number): string => String(n).padStart(2, '0');
-
-export const orgId = (slug: string): string => `org_ats_${slug}`;
-export const orgSlug = (slug: string): string => `ats-${slug}`;
-export const adminEmail = (slug: string): string => `admin@${slug}.example`;
-export const recruiterEmail = (slug: string, slot: number): string => `talent${slot + 1}@${slug}.example`;
-export const staffUserId = (slug: string, who: 'admin' | 'r1' | 'r2'): string => `usr_ats_${slug}_${who}`;
-export const candidateEmail = (index: number): string => `candidate${pad2(index + 1)}@mail.example`;
-export const candidateUserId = (index: number): string => `usr_ats_c${pad2(index + 1)}`;
-
-export const PLATFORM_OPS = { id: 'usr_ats_platform_ops', email: 'ops@platform.example' } as const;
-export const PLATFORM_ADMIN = { id: 'usr_ats_platform_admin', email: 'admin@platform.example' } as const;
+export {
+  PLATFORM_ADMIN,
+  PLATFORM_OPS,
+  adminEmail,
+  candidateEmail,
+  candidateUserId,
+  orgId,
+  orgSlug,
+  recruiterEmail,
+  staffUserId,
+} from './identity.js';
 
 // ── Dynamic dates (CEL) ──────────────────────────────────────────────────────
 
@@ -157,28 +173,74 @@ export function buildOrganizations(pack: LocalePack): SeedRecordOf<typeof SysOrg
   return EMPLOYERS.map((e, i) => ({ id: orgId(e.slug), name: employerName(pack, i), slug: orgSlug(e.slug) }));
 }
 
-/** Employer staff (12 admins + 18 recruiters), two platform staff, and one account per candidate. */
+/**
+ * The platform owner, employer staff (12 admins + 18 recruiters), two platform
+ * staff, and one user per candidate. `email_verified` is written only on the
+ * rows that carry a credential (`personas.ts`); everyone else stays a plain
+ * directory row. The owner goes FIRST, with an id that collates first and a
+ * `created_at` a year older than everyone else's: the security bootstrap's
+ * first-user carve-out promotes the oldest authenticable user in an unordered
+ * 50-row window, and the owner must be that user under every driver's
+ * ordering (the why, and the sqlite measurement, are in `personas.ts`). The
+ * same placement keeps the runtime's dev-admin probe — which also reads the
+ * first 50 users — finding the owner and surfacing the login hint.
+ */
 export function buildUsers(pack: LocalePack): SeedRecordOf<typeof SysUser>[] {
   const locale = pack.locale;
+  const verified = (email: string) => (SIGNABLE_EMAILS.has(email) ? { email_verified: true } : {});
   const users: SeedRecordOf<typeof SysUser>[] = [];
+  users.push({
+    id: PLATFORM_OWNER.id,
+    name: PLATFORM_OWNER.name,
+    email: PLATFORM_OWNER.email,
+    email_verified: true,
+    created_at: daysAgo(365),
+    locale,
+  });
   EMPLOYERS.forEach((e, i) => {
     const staff = pack.staff[i]!;
-    users.push({ id: staffUserId(e.slug, 'admin'), name: staff.admin, email: adminEmail(e.slug), locale });
+    users.push({ id: staffUserId(e.slug, 'admin'), name: staff.admin, email: adminEmail(e.slug), ...verified(adminEmail(e.slug)), locale });
     for (let slot = 0; slot < e.recruiters; slot++) {
+      const email = recruiterEmail(e.slug, slot);
       users.push({
         id: staffUserId(e.slug, slot === 0 ? 'r1' : 'r2'),
         name: staff.recruiters[slot]!,
-        email: recruiterEmail(e.slug, slot),
+        email,
+        ...verified(email),
         locale,
       });
     }
   });
-  users.push({ id: PLATFORM_OPS.id, name: pack.platformStaff.ops, email: PLATFORM_OPS.email, locale });
-  users.push({ id: PLATFORM_ADMIN.id, name: pack.platformStaff.admin, email: PLATFORM_ADMIN.email, locale });
+  users.push({ id: PLATFORM_OPS.id, name: pack.platformStaff.ops, email: PLATFORM_OPS.email, ...verified(PLATFORM_OPS.email), locale });
+  users.push({ id: PLATFORM_ADMIN.id, name: pack.platformStaff.admin, email: PLATFORM_ADMIN.email, ...verified(PLATFORM_ADMIN.email), locale });
   CANDIDATES.forEach((_, i) => {
-    users.push({ id: candidateUserId(i), name: candidateName(pack, i), email: candidateEmail(i), locale });
+    users.push({ id: candidateUserId(i), name: candidateName(pack, i), email: candidateEmail(i), ...verified(candidateEmail(i)), locale });
   });
   return users;
+}
+
+/**
+ * `sys_account` rows — the credentials that make the personas in
+ * `personas.ts` signable. Each is better-auth's local password login for its
+ * user: `provider_id: 'credential'`, `issuer: 'local:credential'`,
+ * `account_id` = the user's id (the sign-in route matches all three), and the
+ * scrypt digest better-auth verifies against. `user_id` is written as the
+ * e-mail, the natural key the loader resolves `sys_user` references by.
+ * Locale-independent: the same seven people sign in under both packs.
+ */
+export function buildAccounts(): SeedRecordOf<typeof SysAccount>[] {
+  const credential = (key: string, userId: string, email: string, passwordHash: string): SeedRecordOf<typeof SysAccount> => ({
+    id: `acc_ats_${key}`,
+    user_id: email,
+    provider_id: 'credential',
+    issuer: 'local:credential',
+    account_id: userId,
+    password: passwordHash,
+  });
+  return [
+    credential('platform_owner', PLATFORM_OWNER.id, PLATFORM_OWNER.email, PLATFORM_OWNER.passwordHash),
+    ...SIGNABLE_PERSONAS.map((p) => credential(p.key, p.userId, p.email, p.passwordHash)),
+  ];
 }
 
 /**
@@ -207,11 +269,17 @@ export function buildMemberships(): SeedRecordOf<typeof SysMember>[] {
  * `sys_user_position` rows — the persona grants that make the memberships
  * above mean something: a member row scopes WHICH employer's rows a user may
  * reach; the position decides WHAT they may do there (DESIGN.md §03 matrix).
- * Platform personas are left to the operator (the dev admin is promoted by the
- * security bootstrap; the two seeded platform staff stay directory rows).
+ * The two seeded platform staff hold the two platform positions so the
+ * Platform group has someone to sign in as; the platform OWNER holds none
+ * (its standing is config-derived, `OS_PLATFORM_OWNER_EMAIL`).
  */
 export function buildUserPositions(): SeedRecordOf<typeof SysUserPosition>[] {
   const rows: SeedRecordOf<typeof SysUserPosition>[] = [];
+  for (const p of SIGNABLE_PERSONAS) {
+    if (p.userId === PLATFORM_ADMIN.id || p.userId === PLATFORM_OPS.id) {
+      rows.push({ id: `upos_ats_${p.key}`, user_id: p.email, position: p.position });
+    }
+  }
   for (const e of EMPLOYERS) {
     rows.push({ id: `upos_ats_${e.slug}_admin`, user_id: adminEmail(e.slug), position: EmployerAdminPosition.name });
     for (let slot = 0; slot < e.recruiters; slot++) {
@@ -223,7 +291,7 @@ export function buildUserPositions(): SeedRecordOf<typeof SysUserPosition>[] {
     }
   }
   CANDIDATES.forEach((_, i) => {
-    rows.push({ id: `upos_ats_c${pad2(i + 1)}`, user_id: candidateEmail(i), position: JobSeekerPosition.name });
+    rows.push({ id: `upos_ats_c${candidateKey(i)}`, user_id: candidateEmail(i), position: JobSeekerPosition.name });
   });
   return rows;
 }
@@ -260,6 +328,7 @@ export function buildEmployerMembers(pack: LocalePack): TenantScopedSeedRecordOf
     rows.push({
       display_name: `${staff.admin} · admin`,
       employer,
+      employer_org: orgId(e.slug),
       organization_id: orgId(e.slug),
       user: adminEmail(e.slug),
       access_level: 'admin',
@@ -269,6 +338,7 @@ export function buildEmployerMembers(pack: LocalePack): TenantScopedSeedRecordOf
       rows.push({
         display_name: `${staff.recruiters[slot]!} · recruiter`,
         employer,
+        employer_org: orgId(e.slug),
         organization_id: orgId(e.slug),
         user: recruiterEmail(e.slug, slot),
         access_level: 'recruiter',

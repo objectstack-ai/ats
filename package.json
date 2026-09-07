@@ -9,7 +9,7 @@
     "pnpm": ">=10.15"
   },
   "scripts": {
-    "dev": "objectstack dev --ui",
+    "dev": "OS_PLATFORM_OWNER_EMAIL=admin@objectos.ai objectstack dev --ui",
     "start": "objectstack start",
     "build": "objectstack build",
     "validate": "objectstack validate",
