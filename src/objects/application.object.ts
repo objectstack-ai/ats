@@ -109,6 +109,7 @@ export const Application = ObjectSchema.create({
     days_to_offer: Field.number({
       label: 'Days to Offer',
       min: 0,
+      readonly: true,
       description: 'Whole days from applying to the first offer on this application. Stamped when that offer is inserted; not editable and not recomputed.',
     }),
 
