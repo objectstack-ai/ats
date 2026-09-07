@@ -13,6 +13,10 @@ export const Candidate = ObjectSchema.create({
   description: 'A person looking for work, with their skills, history and credentials.',
 
   sharingModel: 'private',
+  // Platform-global (DESIGN.md §03, tenancy wall split contract): a candidate
+  // belongs to no employer organization, so the row sits outside the Layer 0
+  // tenant wall and isolation is carried by the row-level rules alone.
+  tenancy: { enabled: false },
   nameField: 'full_name',
 
   fields: {
