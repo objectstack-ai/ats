@@ -65,7 +65,11 @@ export default defineStack({
   // Logic — the stamps that make row-level scoping resolvable (see stamp.hook.ts).
   hooks: allHooks,
 
-  // Automation — the approval chains F1–F3 (DESIGN.md §05).
+  // Automation — the approval chains F1–F3, the stage notification F4 and the
+  // scheduled reminders F5–F6 (DESIGN.md §05). F5/F6 are `schedule`-type flows:
+  // `triggers` binds them onto the job service, which `approvals` above already
+  // pulls in (`serve` prepends `job` + `queue` for it) — so nothing is added to
+  // `requires`, and removing `approvals` would silently unschedule them.
   flows: Object.values(flows),
 
   // Actions — inquiry triage (convert / reject / spam, declarative single-row

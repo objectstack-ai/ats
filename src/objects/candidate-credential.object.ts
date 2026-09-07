@@ -60,6 +60,23 @@ export const CandidateCredential = ObjectSchema.create({
       label: 'Expiring Soon',
       expression: 'record.expires_at != null && record.expires_at >= today() && record.expires_at <= daysFromNow(90)',
     }),
+
+    /**
+     * F5's dedupe state (card 12, #7): when the daily `credential_expiry_reminder`
+     * flow last told the candidate this credential is expiring. The flow skips a
+     * credential reminded within the last 30 days, so a lapsing credential earns
+     * one message per 30 days, not one per day — a reminder that fires daily is
+     * spam, spam gets muted, and the reminder that matters is the one that gets
+     * missed. Stored here rather than in a log object because the dedupe key is
+     * exactly one value per credential; a timestamp rather than a "YYYY-MM"
+     * bucket because two reminders on Aug 31 and Sep 1 are the spam the rule
+     * exists to prevent. Written only by that `runAs: 'system'` flow.
+     */
+    expiry_reminded_at: Field.datetime({
+      label: 'Expiry Reminder Sent',
+      readonly: true,
+      description: 'When the expiry reminder (F5) last notified the candidate; the next reminder waits 30 days.',
+    }),
   },
 
   validations: [
