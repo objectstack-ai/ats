@@ -30,12 +30,31 @@ account platform-admin standing once the seed's people exist (without it the run
 carve-out stays shut and the dev admin is an ordinary user who can administer nothing). On Windows
 `cmd`, set the variable in the shell before running `objectstack dev --ui`.
 
+**The demo seed loads in development mode only.** Every seed under `src/data/` is scoped
+`env: ['dev', 'test']`, and the seed loader reads the mode from `NODE_ENV`: `objectstack dev` (what
+`pnpm dev` runs) sets `NODE_ENV=development` and seeds; `objectstack start` and `objectstack serve`
+set `NODE_ENV=production` when it is unset and seed **nothing** — no ATS rows, no demo logins — and
+say so on one warning line under the startup banner (`[ats] demo seed skipped: NODE_ENV=production …`).
+A production database therefore never receives the fictional people or their published passwords.
+To load the demo into a production-mode boot on purpose, export `NODE_ENV=development`
+(the CLI documents `NODE_ENV=development objectstack start`). Details and evidence:
+[`src/data/demo-seed-gate.ts`](./src/data/demo-seed-gate.ts).
+
 ### Demo logins
 
 **These are fictional demo accounts in a public repository. The passwords are documented here on
-purpose and are not secrets** — do not deploy the demo seed anywhere that matters. Each persona is
-served exactly the navigation group its position unlocks (DESIGN.md §04); the shared password is
-`demo1234`. They are defined in [`src/data/shared/personas.ts`](./src/data/shared/personas.ts).
+purpose and are not secrets.** They exist **only when the demo seed loads — `NODE_ENV=development`
+(or `test`), which `objectstack dev` / `pnpm dev` set**; under `objectstack start`, `objectstack serve`
+or `NODE_ENV=production` none of these rows is created and every sign-in below answers
+`Invalid email or password`. Each persona is served exactly the navigation group its position unlocks
+(DESIGN.md §04); the shared password is `demo1234`. They are defined in
+[`src/data/shared/personas.ts`](./src/data/shared/personas.ts).
+
+| Boot | `NODE_ENV` the CLI pins | Demo rows | These logins |
+|---|---|---|---|
+| `pnpm dev` · `objectstack dev` | `development` (when unset) | 801 seeded | work |
+| `objectstack start` · `objectstack serve` | `production` (when unset) | none | do not exist |
+| `NODE_ENV=development objectstack start` | as exported | 801 seeded | work — deliberate opt-in |
 
 | Sign in as | Password | Who | Sees |
 |---|---|---|---|
