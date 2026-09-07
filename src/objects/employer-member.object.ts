@@ -37,6 +37,11 @@ export const EmployerMember = ObjectSchema.create({
       inlineEdit: 'grid',
       inlineTitle: 'Members',
     }),
+    employer_org: Field.text({
+      label: 'Employer Organization',
+      maxLength: 64,
+      description: 'Organization id of the employer, stamped on write. Row-level policies compare it to the caller\'s org memberships — a predicate cannot traverse the employer lookup (ADR-0055).',
+    }),
     user: Field.user({
       label: 'User',
       required: true,
