@@ -108,7 +108,10 @@ type Row = Record<string, unknown>;
  * identical residual `ats_employer_member.display_name` already carries, and it
  * is the price of a stored mirror — the alternative, recomputing on every read,
  * is what a formula would do and CEL cannot read a user's name at all. A
- * REASSIGNMENT is not stale: re-pointing `owner` is a payload that names it.
+ * REASSIGNMENT is not stale: re-pointing `owner` is a payload that names it,
+ * and so is CLEARING it — `owner: null` empties the mirror rather than leaving
+ * a name behind (the `??` that used to read the pointer here resurrected the
+ * old one: measured, `PATCH {"owner": null}` left the previous name in place).
  *
  * ## Why the guard, not an unconditional re-derive (#43)
  *
@@ -139,17 +142,31 @@ export const EmployerStampHook = defineHook({
     const inserting = ctx.event === 'beforeInsert';
     if (!inserting && !['owner', 'owner_name'].some((k) => input[k] !== undefined)) return;
 
-    const ownerRef = input.owner ?? prev.owner;
-    if (typeof ownerRef !== 'string' || ownerRef === '') return;
-    // Seeds address users by their external id (`email`); everything else
-    // writes the resolved `sys_user.id`. Try the id, then the e-mail, so the
-    // column carries a NAME on both paths and never an address (#67).
-    let user = (await api.object('sys_user').findOne({ where: { id: ownerRef } })) as Row | null;
-    if (!user) user = (await api.object('sys_user').findOne({ where: { email: ownerRef } })) as Row | null;
+    // Read `previous` only when the payload does not name `owner` AT ALL: `??`
+    // treats an explicit `owner: null` as absent and would re-derive the name
+    // of the contact just removed.
+    const ownerRef = input.owner !== undefined ? input.owner : prev.owner;
+    if (typeof ownerRef !== 'string' || ownerRef === '') {
+      // No contact to mirror. An update that cleared the pointer has a stale
+      // name to remove; an insert has nothing to clear, and writing the key
+      // there would only add an explicit null the column does not need.
+      if (!inserting) input.owner_name = null;
+      return;
+    }
+    // One lookup, by id. The reference IS an id by the time a handler sees it:
+    // the engine refuses a `Field.user` value that is not an existing
+    // `sys_user` id (`VALIDATION_FAILED` / `reference_not_found`, measured on
+    // both an e-mail and a bogus id), and the seeder resolves its `externalId`
+    // reference before the hook runs — which is why the member stamp below,
+    // whose lookup has only ever been by id, titles all 30 seeded rows with
+    // real names from a seed that addresses users by e-mail.
+    const user = (await api.object('sys_user').findOne({ where: { id: ownerRef } })) as Row | null;
     const name = String(user?.name ?? '').trim();
     // Fallback is the reference itself, never an empty cell: an unresolvable
     // contact is a data problem the reviewer should SEE, the same call
-    // `ats_employer_member.display_name` makes (#22).
+    // `ats_employer_member.display_name` makes (#22). Unreachable from the API
+    // by the validation above; what it covers is a contact whose user row was
+    // deleted after the fact.
     input.owner_name = name !== '' ? name : ownerRef;
   },
 });

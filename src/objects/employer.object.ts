@@ -146,12 +146,26 @@ export const Employer = ObjectSchema.create({
      *
      * Minimal by construction — the NAME and nothing else. That bound is what
      * makes the mirror defensible rather than a way around the row-visibility
-     * rule it sits next to: `ats_employer_member.display_name` already shows
-     * every employer-staff name to platform staff (30 of 30 rows readable to
-     * both platform personas, measured), so this projects a fact that audience
-     * already holds. A work e-mail or a phone number would not be — nothing
-     * shows those to a platform reviewer today, and copying them here would be
-     * a new disclosure wearing a rendering fix's clothes.
+     * rule it sits next to, and it holds PER AUDIENCE, not in general:
+     *
+     *   platform admin / ops  `ats_employer_member` is readable to both, 30 of
+     *                         30 rows, and its `display_name` already reads
+     *                         "Margaret Ellison · admin" for every one of the
+     *                         12 contacts (measured, both personas). For them
+     *                         this column restates a fact they already hold.
+     *   job seeker            reads the 9 verified employers and is 403 on
+     *                         `ats_employer_member` (measured). For them the
+     *                         name is NEW — the pointer they read today is an
+     *                         opaque `usr_ats_*` — so the job-seeker set seals
+     *                         this field the way it seals `verification_note`
+     *                         (`security/permission-sets.ts`). The seal is
+     *                         part of the fix, not an afterthought: without it
+     *                         a rendering repair for 2 reviewers discloses 12
+     *                         contact names to 80 seeker accounts.
+     *
+     * A work e-mail or a phone number would fail that test for EVERY audience —
+     * nothing shows those to a platform reviewer today, and copying them here
+     * would be a new disclosure wearing a rendering fix's clothes.
      *
      * Not `searchable`, deliberately: search is a second, wider surface and the
      * reviewer's queue is a 2-row slice they read, not search.
