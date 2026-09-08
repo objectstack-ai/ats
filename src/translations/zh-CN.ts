@@ -442,6 +442,10 @@ export const zhCN: TranslationData = {
         owner: {
           label: '主要联系人',
         },
+        owner_name: {
+          label: '主要联系人姓名',
+          help: '主要联系人的姓名,写入时从其用户记录镜像而来。平台审核人员无权读取雇主员工的用户行,因此仅凭联系人指针只会渲染出一个无意义的 id。',
+        },
         can_publish: {
           label: '可发布岗位',
         },

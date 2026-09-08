@@ -28,7 +28,10 @@ const columns = [
   { field: 'city' },
   { field: 'verification_status' },
   { field: 'service_tier' },
-  { field: 'owner' },
+  // `owner_name`, not `owner` — the pointer renders as a bare `usr_ats_*` for
+  // the platform reviewer this list is for; the stored mirror carries the name
+  // (#67, employer.object.ts).
+  { field: 'owner_name' },
 ] satisfies ListColumn[];
 
 export const EmployerViews = defineView({
