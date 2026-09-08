@@ -305,6 +305,16 @@ export const JobSeekerSet = definePermissionSet({
   fields: {
     'ats_job.review_note':            { readable: false, editable: false },
     'ats_employer.verification_note': { readable: false, editable: false },
+    // `owner_name` mirrors the employer contact's personal name onto the
+    // employer row so the platform review queue can render a name instead of
+    // `usr_ats_*` (#67). That mirror is defensible for a platform reviewer
+    // because `ats_employer_member.display_name` already tells them the same
+    // 12 names; a job seeker holds no such fact — this set grants no access to
+    // `ats_employer_member` at all (measured: 403) and the pointer the mirror
+    // replaces renders to a seeker as an opaque id. Unsealed, a fix for two
+    // reviewers would hand every verified employer's contact name to all 80
+    // seeker accounts. The pointer stays readable; the name does not.
+    'ats_employer.owner_name':        { readable: false, editable: false },
   },
   rowLevelSecurity: [
     // Only verified employers, and only published jobs, are browsable.

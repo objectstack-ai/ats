@@ -86,6 +86,92 @@ import { defineHook, type HookContext } from '@objectstack/spec/data';
 type Row = Record<string, unknown>;
 
 /**
+ * `ats_employer` — mirror the primary contact's name onto the employer row.
+ *
+ * `owner` is a `Field.user`, and a user field renders whatever the query
+ * returns for it. For a platform reviewer that is the bare id: the contact is
+ * employer-side staff, their `sys_user` row is not readable to a platform
+ * persona, and the runtime refuses the expansion rather than leaking it — so
+ * the review queue's "who do I contact" column reads `usr_ats_*` (#67).
+ *
+ * The name is resolved HERE, once, on the write, under `runAs: 'system'`, for
+ * the same reason every other stamp in this file is: the caller who writes the
+ * employer row is not necessarily allowed to read the user row the value comes
+ * from, and a caller-scoped read would resolve to nothing. What lands in the
+ * column is the NAME only — see the field's own comment in
+ * `employer.object.ts` for why that bound is the whole argument.
+ *
+ * ## The one residual, stated
+ *
+ * A later rename of the `sys_user` row does not reach back into this column;
+ * only a write that names `owner` (or `owner_name`) re-derives it. That is the
+ * identical residual `ats_employer_member.display_name` already carries, and it
+ * is the price of a stored mirror — the alternative, recomputing on every read,
+ * is what a formula would do and CEL cannot read a user's name at all. A
+ * REASSIGNMENT is not stale: re-pointing `owner` is a payload that names it,
+ * and so is CLEARING it — `owner: null` empties the mirror rather than leaving
+ * a name behind (the `??` that used to read the pointer here resurrected the
+ * old one: measured, `PATCH {"owner": null}` left the previous name in place).
+ *
+ * ## Why the guard, not an unconditional re-derive (#43)
+ *
+ * plugin-security's `claimSeedOwnership` runs `update(ats_employer,
+ * { owner_id }, { where: { owner_id: null }, multi: true })` on every boot, and
+ * a predicate update sends ONE `SET` clause for all matched rows: whatever this
+ * handler wrote for the last row would land on all twelve. Its payload names
+ * `owner_id` — the injected ownership anchor — and NOT `owner`, so the guard
+ * below returns before anything is computed and the twelve stamps survive the
+ * claim pass untouched. Same reason a no-op PATCH leaves the column alone. The
+ * shape is the file header's rule, verbatim: on insert stamp; on update only
+ * when the payload names a source field or the derived field itself (which
+ * keeps the anti-tamper property — writing `owner_name` directly re-derives it
+ * from `owner` rather than storing what the caller sent).
+ */
+export const EmployerStampHook = defineHook({
+  name: 'ats_employer_stamp',
+  object: 'ats_employer',
+  events: ['beforeInsert', 'beforeUpdate'],
+  priority: 100,
+  runAs: 'system',
+  description: "Stamps the employer's primary contact name from the contact's user record.",
+  handler: async (ctx: HookContext) => {
+    const api = ctx.api;
+    if (!api) throw new Error('ats_employer_stamp: ctx.api is unavailable, the primary contact cannot be resolved');
+    const input = ctx.input as Row;
+    const prev = (ctx.previous ?? {}) as Row;
+    const inserting = ctx.event === 'beforeInsert';
+    if (!inserting && !['owner', 'owner_name'].some((k) => input[k] !== undefined)) return;
+
+    // Read `previous` only when the payload does not name `owner` AT ALL: `??`
+    // treats an explicit `owner: null` as absent and would re-derive the name
+    // of the contact just removed.
+    const ownerRef = input.owner !== undefined ? input.owner : prev.owner;
+    if (typeof ownerRef !== 'string' || ownerRef === '') {
+      // No contact to mirror. An update that cleared the pointer has a stale
+      // name to remove; an insert has nothing to clear, and writing the key
+      // there would only add an explicit null the column does not need.
+      if (!inserting) input.owner_name = null;
+      return;
+    }
+    // One lookup, by id. The reference IS an id by the time a handler sees it:
+    // the engine refuses a `Field.user` value that is not an existing
+    // `sys_user` id (`VALIDATION_FAILED` / `reference_not_found`, measured on
+    // both an e-mail and a bogus id), and the seeder resolves its `externalId`
+    // reference before the hook runs — which is why the member stamp below,
+    // whose lookup has only ever been by id, titles all 30 seeded rows with
+    // real names from a seed that addresses users by e-mail.
+    const user = (await api.object('sys_user').findOne({ where: { id: ownerRef } })) as Row | null;
+    const name = String(user?.name ?? '').trim();
+    // Fallback is the reference itself, never an empty cell: an unresolvable
+    // contact is a data problem the reviewer should SEE, the same call
+    // `ats_employer_member.display_name` makes (#22). Unreachable from the API
+    // by the validation above; what it covers is a contact whose user row was
+    // deleted after the fact.
+    input.owner_name = name !== '' ? name : ownerRef;
+  },
+});
+
+/**
  * `ats_employer_member` — inherit the employer's organization, and title the
  * row as "USER NAME · ACCESS_LEVEL" (object description, DESIGN.md §02): the
  * person's `sys_user.name`, with the user id as the fallback when the row is

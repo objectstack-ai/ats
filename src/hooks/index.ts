@@ -1,4 +1,5 @@
 import {
+  EmployerStampHook,
   EmployerMemberStampHook,
   JobStampHook,
   ApplicationStampHook,
@@ -10,6 +11,7 @@ import {
 import { InquiryStampHook, InquiryConvertHook } from './inquiry.hook.js';
 
 export const allHooks = [
+  EmployerStampHook,
   EmployerMemberStampHook,
   JobStampHook,
   ApplicationStampHook,

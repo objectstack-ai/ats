@@ -30,7 +30,14 @@ export const Employer = ObjectSchema.create({
   // contact (#33). `verification_docs` is deliberately absent: the seed carries
   // it on 0 of 12 rows and a multi-file column cannot be read at a glance —
   // the reviewer opens it on the record.
-  highlightFields: ['name', 'industry', 'city', 'verification_status', 'service_tier', 'owner'],
+  //
+  // The contact slot names `owner_name`, not `owner`: a `Field.user` renders
+  // whatever the query returns for it, and for a platform reviewer that is the
+  // bare id — the contact's `sys_user` row is not readable to them, so the
+  // expansion is refused and the cell degrades to `usr_ats_*` (#67). The
+  // pointer stays authoritative (the F1 approval notifies `record.owner`);
+  // this slot carries the one fact a reviewer reads at a glance.
+  highlightFields: ['name', 'industry', 'city', 'verification_status', 'service_tier', 'owner_name'],
 
   fields: {
     name: Field.text({
@@ -130,6 +137,43 @@ export const Employer = ObjectSchema.create({
     owner: Field.user({
       label: 'Primary Contact',
       defaultValue: 'current_user',
+    }),
+    /**
+     * The reviewer's readable contact column — a STORED mirror of the primary
+     * contact's `sys_user.name`, the same shape and the same reason as
+     * `ats_employer_member.display_name`: CEL cannot read a user's name, so a
+     * formula is not an option, and a formula is not searchable either.
+     *
+     * Minimal by construction — the NAME and nothing else. That bound is what
+     * makes the mirror defensible rather than a way around the row-visibility
+     * rule it sits next to, and it holds PER AUDIENCE, not in general:
+     *
+     *   platform admin / ops  `ats_employer_member` is readable to both, 30 of
+     *                         30 rows, and its `display_name` already reads
+     *                         "Margaret Ellison · admin" for every one of the
+     *                         12 contacts (measured, both personas). For them
+     *                         this column restates a fact they already hold.
+     *   job seeker            reads the 9 verified employers and is 403 on
+     *                         `ats_employer_member` (measured). For them the
+     *                         name is NEW — the pointer they read today is an
+     *                         opaque `usr_ats_*` — so the job-seeker set seals
+     *                         this field the way it seals `verification_note`
+     *                         (`security/permission-sets.ts`). The seal is
+     *                         part of the fix, not an afterthought: without it
+     *                         a rendering repair for 2 reviewers discloses 12
+     *                         contact names to 80 seeker accounts.
+     *
+     * A work e-mail or a phone number would fail that test for EVERY audience —
+     * nothing shows those to a platform reviewer today, and copying them here
+     * would be a new disclosure wearing a rendering fix's clothes.
+     *
+     * Not `searchable`, deliberately: search is a second, wider surface and the
+     * reviewer's queue is a 2-row slice they read, not search.
+     */
+    owner_name: Field.text({
+      label: 'Primary Contact Name',
+      maxLength: 200,
+      description: 'Name of the primary contact, stamped from their user record on write. A platform reviewer cannot read employer-staff user rows, so the contact pointer alone renders as an opaque id.',
     }),
 
     /** CEL: may this employer publish jobs right now? */

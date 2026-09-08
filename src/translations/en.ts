@@ -449,6 +449,10 @@ export const en: TranslationData = {
         owner: {
           label: 'Primary Contact',
         },
+        owner_name: {
+          label: 'Primary Contact Name',
+          help: 'Name of the primary contact, stamped from their user record on write. A platform reviewer cannot read employer-staff user rows, so the contact pointer alone renders as an opaque id.',
+        },
         can_publish: {
           label: 'Can Publish',
         },
