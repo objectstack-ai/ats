@@ -10,9 +10,10 @@ import type { Dashboard } from '@objectstack/spec/ui';
  * #46). Quillstone's administrator and Harborline's read different numbers
  * from the same widgets, and platform staff read the whole marketplace.
  *
- * All four of the card's tiles are here. The fourth — "Average Days to
- * Offer" — reads `avg(ats_application.days_to_offer)` over this employer's
- * HIRED applications, and it took three things that did not exist when the
+ * All four of the card's tiles are here. The fourth — "Days to Offer",
+ * DESIGN.md §04's 平均到 Offer 天数 — reads
+ * `avg(ats_application.days_to_offer)` over this employer's HIRED
+ * applications, and it took three things that did not exist when the
  * dashboard was first built:
  *   - a STORED column. `days_to_offer` is a duration between `applied_at` on
  *     the application and `created_at` on the offer; a dataset measure
@@ -61,19 +62,19 @@ export const EmployerHiringDashboard: Dashboard = {
       dataset: 'ats_job_metrics',
       values: ['job_count'],
       filter: { status: 'published' },
-      layout: { x: 0, y: 0, w: 4, h: 2 },
+      layout: { x: 0, y: 0, w: 3, h: 2 },
       options: { icon: 'briefcase' },
     },
     {
       id: 'awaiting_action',
       type: 'kpi',
-      title: 'Applications Awaiting Action',
+      title: 'Awaiting Action',
       description: 'In "applied" or "screening".',
       dataset: 'ats_application_metrics',
       values: ['application_count'],
       filter: { stage: { $in: ['applied', 'screening'] } },
       colorVariant: 'warning',
-      layout: { x: 4, y: 0, w: 4, h: 2 },
+      layout: { x: 3, y: 0, w: 3, h: 2 },
       options: { icon: 'inbox' },
     },
     {
@@ -84,19 +85,19 @@ export const EmployerHiringDashboard: Dashboard = {
       dataset: 'ats_interview_metrics',
       values: ['interview_count'],
       filter: { status: { $ne: 'cancelled' }, scheduled_at: { $gte: '{current_week_start}', $lt: '{next_week_start}' } },
-      layout: { x: 8, y: 0, w: 4, h: 2 },
+      layout: { x: 6, y: 0, w: 3, h: 2 },
       options: { icon: 'calendar-clock' },
     },
     {
       id: 'avg_days_to_offer',
       type: 'kpi',
-      title: 'Average Days to Offer',
+      title: 'Days to Offer',
       description: 'Applied to first offer, over your hired applications.',
       dataset: 'ats_application_metrics',
       values: ['avg_days_to_offer'],
       filter: { stage: 'hired' },
       colorVariant: 'success',
-      layout: { x: 0, y: 2, w: 4, h: 2 },
+      layout: { x: 9, y: 0, w: 3, h: 2 },
       options: { icon: 'timer' },
     },
     {
@@ -114,7 +115,7 @@ export const EmployerHiringDashboard: Dashboard = {
         series: [{ name: 'application_count', label: 'Applications' }],
         showLegend: false,
       },
-      layout: { x: 0, y: 4, w: 12, h: 5 },
+      layout: { x: 0, y: 2, w: 12, h: 5 },
     },
   ],
 };

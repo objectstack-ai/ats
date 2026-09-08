@@ -1124,7 +1124,7 @@ export const en: TranslationData = {
           description: 'Published jobs.',
         },
         awaiting_action: {
-          title: 'Applications Awaiting Action',
+          title: 'Awaiting Action',
           description: 'In "applied" or "screening".',
         },
         interviews_this_week: {
@@ -1132,7 +1132,7 @@ export const en: TranslationData = {
           description: 'Rounds scheduled Monday to Sunday, cancelled ones excluded.',
         },
         avg_days_to_offer: {
-          title: 'Average Days to Offer',
+          title: 'Days to Offer',
           description: 'Applied to first offer, over your hired applications.',
         },
         pipeline_by_stage: {
