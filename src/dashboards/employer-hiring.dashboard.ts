@@ -44,7 +44,26 @@ import type { Dashboard } from '@objectstack/spec/ui';
  *
  * "This week" is Monday 00:00 (`{current_week_start}`) up to but excluding
  * next Monday (`{next_week_start}`): `*_end` macros are calendar days, and
- * `scheduled_at` is a timestamp.
+ * `scheduled_at` is a timestamp. On the demo seed that window is why the tile
+ * is boot-day dependent: the seed schedules each employer's rounds at
+ * boot + 1 … + n days, so a Monday boot leaves six of Quillstone's ten inside
+ * the week and every later weekday one fewer (#78 measured 5 on a Tuesday).
+ *
+ * LAYOUT — four `w: 3` KPI tiles on row 0, `x` 0/3/6/9, and the bar at
+ * `y: 2` (#78). The fourth tile arrived at `w: 4`, which fills 12 columns with
+ * three and opens row 2 for the fourth alone; that pushed the chart to `y: 4`
+ * and past the 900 px fold of the screenshot set's viewport. Two titles were
+ * shortened to fit the narrower tile, because the dashboard header already
+ * says "applications awaiting action" and "average days to offer":
+ * "Applications Awaiting Action" → "Awaiting Action", "Average Days to Offer"
+ * → "Days to Offer". Measured in the Console at 1440 × 900 (sidebar open) a
+ * `w: 3` tile gives the title a 222 px box; the four titles render at
+ * 77 / 118 / 162 / 101 px, one line box each. The retired long spelling
+ * measures 215.5 px — it would have survived on this font stack with 6.5 px to
+ * spare, which is not a margin to ship a home screen on. `src/translations`
+ * carries the same two strings in `en` (`check:i18n-source` compares them to
+ * these labels); the `zh-CN` titles are unchanged — they are 62–96 px wide in
+ * the same box and 平均到 Offer 天数 is DESIGN.md §04's own wording.
  */
 export const EmployerHiringDashboard: Dashboard = {
   name: 'ats_employer_hiring',
